@@ -1,0 +1,216 @@
+// Keyboard shortcuts
+
+import { bus, EVENTS } from './events.js';
+import {
+  getImages,
+  getSelectedIndex,
+  setSelectedIndex,
+  getGridColumns,
+  getSource,
+} from './grid.js';
+import { isLightboxOpen, navigateLightbox, toggleLightbox } from './lightbox.js';
+import { cycleAndAdvance, rejectAndAdvance } from './selection.js';
+
+let shortcutsVisible = false;
+
+export function initKeyboard() {
+  document.addEventListener('keydown', handleKeydown);
+}
+
+function handleKeydown(e) {
+  // Don't capture when typing in inputs
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+
+  const images = getImages();
+  const index = getSelectedIndex();
+
+  switch (e.key) {
+    case ' ':
+      e.preventDefault();
+      // If no image selected, select first one
+      if (index < 0 && images.length > 0) {
+        setSelectedIndex(0);
+      }
+      toggleLightbox();
+      break;
+
+    case 'Escape':
+      if (isLightboxOpen()) {
+        toggleLightbox();
+      } else if (shortcutsVisible) {
+        toggleShortcuts();
+      } else {
+        bus.emit(EVENTS.SIDEBAR_TOGGLE, { open: false });
+      }
+      break;
+
+    case 'ArrowRight':
+      e.preventDefault();
+      if (e.metaKey) {
+        rotateImage('cw');
+      } else if (isLightboxOpen()) {
+        navigateLightbox(1);
+      } else if (index < images.length - 1) {
+        setSelectedIndex(index + 1);
+      } else if (index === -1 && images.length > 0) {
+        setSelectedIndex(0);
+      }
+      break;
+
+    case 'ArrowLeft':
+      e.preventDefault();
+      if (e.metaKey) {
+        rotateImage('ccw');
+      } else if (isLightboxOpen()) {
+        navigateLightbox(-1);
+      } else if (index > 0) {
+        setSelectedIndex(index - 1);
+      }
+      break;
+
+    case 'ArrowDown':
+      e.preventDefault();
+      if (!isLightboxOpen()) {
+        const cols = getGridColumns();
+        const next = index + cols;
+        if (next < images.length) {
+          setSelectedIndex(next);
+        }
+      }
+      break;
+
+    case 'ArrowUp':
+      e.preventDefault();
+      if (!isLightboxOpen()) {
+        const cols = getGridColumns();
+        const prev = index - cols;
+        if (prev >= 0) {
+          setSelectedIndex(prev);
+        }
+      }
+      break;
+
+    case 'p':
+    case 'P':
+      e.preventDefault();
+      cycleAndAdvance();
+      break;
+
+    case 'x':
+    case 'X':
+      e.preventDefault();
+      rejectAndAdvance();
+      break;
+
+    case 'i':
+    case 'I':
+      e.preventDefault();
+      bus.emit(EVENTS.SIDEBAR_TOGGLE);
+      break;
+
+    case '?':
+      e.preventDefault();
+      toggleShortcuts();
+      break;
+
+    case 'z':
+      if (e.metaKey || e.ctrlKey) {
+        e.preventDefault();
+        bus.emit(EVENTS.UNDO);
+      }
+      break;
+
+    default:
+      break;
+  }
+}
+
+async function rotateImage(direction) {
+  const images = getImages();
+  const index = getSelectedIndex();
+  if (index < 0 || index >= images.length) return;
+
+  const img = images[index];
+  const source = getSource();
+
+  try {
+    const res = await fetch('/api/rotate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ filename: img.filename, source, direction }),
+    });
+
+    if (!res.ok) return;
+
+    // Bust the browser cache by appending a timestamp to thumb/preview URLs
+    const bust = `&_t=${Date.now()}`;
+    const thumbImg = document.querySelector(`.card[data-index="${index}"] img`);
+    if (thumbImg) {
+      thumbImg.src = thumbImg.src.replace(/&_t=\d+/, '') + bust;
+    }
+
+    // If lightbox is open, refresh its image too
+    if (isLightboxOpen()) {
+      const lbImg = document.getElementById('lb-img');
+      if (lbImg) {
+        lbImg.src = lbImg.src.replace(/&_t=\d+/, '') + bust;
+      }
+    }
+
+    bus.emit(EVENTS.IMAGE_ROTATED, { index, direction });
+  } catch {
+    // silently fail
+  }
+}
+
+function toggleShortcuts() {
+  const existing = document.getElementById('shortcuts-overlay');
+  if (existing) {
+    existing.remove();
+    shortcutsVisible = false;
+    return;
+  }
+  shortcutsVisible = true;
+  showShortcutsOverlay();
+}
+
+function showShortcutsOverlay() {
+  const overlay = document.createElement('div');
+  overlay.className = 'shortcuts-overlay';
+  overlay.id = 'shortcuts-overlay';
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) toggleShortcuts();
+  });
+
+  overlay.innerHTML = `
+    <div class="shortcuts-panel">
+      <h2>Keyboard Shortcuts</h2>
+      <div class="shortcut-group">
+        <h3>Sorting</h3>
+        <div class="shortcut-row"><span class="desc">Cycle: keep \u2192 fav \u2192 unsorted</span><span class="keys">Click</span></div>
+        <div class="shortcut-row"><span class="desc">Reject</span><span class="keys">\u2318+Click</span></div>
+        <div class="shortcut-row"><span class="desc">Range keep</span><span class="keys">Shift+Click</span></div>
+        <div class="shortcut-row"><span class="desc">Range reject</span><span class="keys">Shift+\u2318+Click</span></div>
+        <div class="shortcut-row"><span class="desc">Quick preview</span><span class="keys">Ctrl+Click</span></div>
+        <div class="shortcut-row"><span class="desc">Cycle + advance</span><span class="keys">P</span></div>
+        <div class="shortcut-row"><span class="desc">Reject + advance</span><span class="keys">X</span></div>
+        <div class="shortcut-row"><span class="desc">Undo</span><span class="keys">\u2318+Z</span></div>
+      </div>
+      <div class="shortcut-group">
+        <h3>Navigation</h3>
+        <div class="shortcut-row"><span class="desc">Move cursor</span><span class="keys">\u2190 \u2191 \u2192 \u2193</span></div>
+        <div class="shortcut-row"><span class="desc">Toggle preview</span><span class="keys">Space</span></div>
+        <div class="shortcut-row"><span class="desc">Rotate left</span><span class="keys">\u2318+\u2190</span></div>
+        <div class="shortcut-row"><span class="desc">Rotate right</span><span class="keys">\u2318+\u2192</span></div>
+      </div>
+      <div class="shortcut-group">
+        <h3>Panels</h3>
+        <div class="shortcut-row"><span class="desc">Toggle sidebar</span><span class="keys">I</span></div>
+        <div class="shortcut-row"><span class="desc">This overlay</span><span class="keys">?</span></div>
+        <div class="shortcut-row"><span class="desc">Close</span><span class="keys">Esc</span></div>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(overlay);
+}
