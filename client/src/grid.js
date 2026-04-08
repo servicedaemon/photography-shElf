@@ -196,12 +196,22 @@ function renderGrid() {
     // Click handler
     card.addEventListener('click', (e) => {
       e.preventDefault();
-      if (e.altKey && !e.metaKey && !e.shiftKey) {
-        // Option+click: open lightbox preview
-        bus.emit(EVENTS.LIGHTBOX_OPEN, { index: i });
-        return;
-      }
+      if (e.altKey) return; // handled by mousedown peek
       bus.emit(EVENTS.SELECT, { index: i, meta: e.metaKey, shift: e.shiftKey });
+    });
+
+    // Option+click peek: show lightbox on press, close on release
+    card.addEventListener('mousedown', (e) => {
+      if (e.altKey && !e.metaKey && !e.shiftKey && e.button === 0) {
+        e.preventDefault();
+        bus.emit(EVENTS.LIGHTBOX_OPEN, { index: i });
+        const closeOnUp = () => {
+          bus.emit(EVENTS.LIGHTBOX_CLOSE);
+          document.removeEventListener('mouseup', closeOnUp);
+        };
+        document.removeEventListener('mouseup', closeOnUp);
+        document.addEventListener('mouseup', closeOnUp);
+      }
     });
 
     // Apply filter
