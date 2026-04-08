@@ -3,6 +3,7 @@ import path from 'path';
 import fs from 'fs';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
+import { invalidateCache } from '../lib/thumbnails.js';
 
 const execFileAsync = promisify(execFile);
 
@@ -83,6 +84,9 @@ convertRoutes.post('/convert', async (req, res) => {
       await execFileAsync(dnglabPath, ['convert', srcFile, dngFile], {
         timeout: 60000,
       });
+
+      // Invalidate old thumbnail cache for the source file
+      invalidateCache(srcFile);
 
       // Handle originals
       if (keepOriginals) {
