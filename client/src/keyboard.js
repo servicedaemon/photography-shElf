@@ -46,7 +46,7 @@ function handleKeydown(e) {
 
     case 'ArrowRight':
       e.preventDefault();
-      if (e.metaKey) {
+      if (e.altKey) {
         rotateImage('cw');
       } else if (isLightboxOpen()) {
         navigateLightbox(1);
@@ -59,7 +59,7 @@ function handleKeydown(e) {
 
     case 'ArrowLeft':
       e.preventDefault();
-      if (e.metaKey) {
+      if (e.altKey) {
         rotateImage('ccw');
       } else if (isLightboxOpen()) {
         navigateLightbox(-1);
@@ -191,7 +191,7 @@ function showShortcutsOverlay() {
         <div class="shortcut-row"><span class="desc">Reject</span><span class="keys">\u2318+Click</span></div>
         <div class="shortcut-row"><span class="desc">Range keep</span><span class="keys">Shift+Click</span></div>
         <div class="shortcut-row"><span class="desc">Range reject</span><span class="keys">Shift+\u2318+Click</span></div>
-        <div class="shortcut-row"><span class="desc">Quick preview</span><span class="keys">Ctrl+Click</span></div>
+        <div class="shortcut-row"><span class="desc">Quick preview</span><span class="keys">\u2325+Click</span></div>
         <div class="shortcut-row"><span class="desc">Cycle + advance</span><span class="keys">P</span></div>
         <div class="shortcut-row"><span class="desc">Reject + advance</span><span class="keys">X</span></div>
         <div class="shortcut-row"><span class="desc">Undo</span><span class="keys">\u2318+Z</span></div>
@@ -200,8 +200,8 @@ function showShortcutsOverlay() {
         <h3>Navigation</h3>
         <div class="shortcut-row"><span class="desc">Move cursor</span><span class="keys">\u2190 \u2191 \u2192 \u2193</span></div>
         <div class="shortcut-row"><span class="desc">Toggle preview</span><span class="keys">Space</span></div>
-        <div class="shortcut-row"><span class="desc">Rotate left</span><span class="keys">\u2318+\u2190</span></div>
-        <div class="shortcut-row"><span class="desc">Rotate right</span><span class="keys">\u2318+\u2192</span></div>
+        <div class="shortcut-row"><span class="desc">Rotate left</span><span class="keys">\u2325+\u2190</span></div>
+        <div class="shortcut-row"><span class="desc">Rotate right</span><span class="keys">\u2325+\u2192</span></div>
       </div>
       <div class="shortcut-group">
         <h3>Panels</h3>

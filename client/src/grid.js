@@ -196,8 +196,8 @@ function renderGrid() {
     // Click handler
     card.addEventListener('click', (e) => {
       e.preventDefault();
-      if (e.ctrlKey && !e.metaKey && !e.shiftKey) {
-        // Ctrl+click: open lightbox preview
+      if (e.altKey && !e.metaKey && !e.shiftKey) {
+        // Option+click: open lightbox preview
         bus.emit(EVENTS.LIGHTBOX_OPEN, { index: i });
         return;
       }
