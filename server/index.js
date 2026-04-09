@@ -9,7 +9,7 @@ import { configRoutes } from './routes/config.js';
 import { convertRoutes } from './routes/convert.js';
 
 const app = express();
-const PORT = 3457;
+const PORT = parseInt(process.env.PORT || '3457');
 
 app.use(cors());
 app.use(express.json());
