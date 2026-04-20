@@ -9,7 +9,7 @@ import {
   getSource,
 } from './grid.js';
 import { isLightboxOpen, navigateLightbox, toggleLightbox } from './lightbox.js';
-import { cycleAndAdvance, rejectAndAdvance } from './selection.js';
+import { keepAndAdvance, favoriteAndAdvance, rejectAndAdvance, unmarkAndAdvance } from './selection.js';
 
 let shortcutsVisible = false;
 
@@ -93,13 +93,25 @@ function handleKeydown(e) {
     case 'p':
     case 'P':
       e.preventDefault();
-      cycleAndAdvance();
+      keepAndAdvance();
+      break;
+
+    case 'f':
+    case 'F':
+      e.preventDefault();
+      favoriteAndAdvance();
       break;
 
     case 'x':
     case 'X':
       e.preventDefault();
       rejectAndAdvance();
+      break;
+
+    case 'u':
+    case 'U':
+      e.preventDefault();
+      unmarkAndAdvance();
       break;
 
     case 'i':
@@ -186,14 +198,16 @@ function showShortcutsOverlay() {
     <div class="shortcuts-panel">
       <h2>Keyboard Shortcuts</h2>
       <div class="shortcut-group">
-        <h3>Sorting</h3>
-        <div class="shortcut-row"><span class="desc">Cycle: keep \u2192 fav \u2192 unsorted</span><span class="keys">Click</span></div>
+        <h3>Marking</h3>
+        <div class="shortcut-row"><span class="desc">Keep</span><span class="keys">P</span></div>
+        <div class="shortcut-row"><span class="desc">Favorite</span><span class="keys">F</span></div>
+        <div class="shortcut-row"><span class="desc">Reject</span><span class="keys">X</span></div>
+        <div class="shortcut-row"><span class="desc">Unmark</span><span class="keys">U</span></div>
+        <div class="shortcut-row"><span class="desc">Click (toggle keep)</span><span class="keys">Click</span></div>
+        <div class="shortcut-row"><span class="desc">Favorite</span><span class="keys">Double\u2011click</span></div>
         <div class="shortcut-row"><span class="desc">Reject</span><span class="keys">\u2318+Click</span></div>
         <div class="shortcut-row"><span class="desc">Range keep</span><span class="keys">Shift+Click</span></div>
         <div class="shortcut-row"><span class="desc">Range reject</span><span class="keys">Shift+\u2318+Click</span></div>
-        <div class="shortcut-row"><span class="desc">Quick preview</span><span class="keys">\u2325+Click</span></div>
-        <div class="shortcut-row"><span class="desc">Cycle + advance</span><span class="keys">P</span></div>
-        <div class="shortcut-row"><span class="desc">Reject + advance</span><span class="keys">X</span></div>
         <div class="shortcut-row"><span class="desc">Undo</span><span class="keys">\u2318+Z</span></div>
       </div>
       <div class="shortcut-group">

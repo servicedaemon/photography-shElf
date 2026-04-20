@@ -200,6 +200,13 @@ function renderGrid() {
       bus.emit(EVENTS.SELECT, { index: i, meta: e.metaKey, shift: e.shiftKey });
     });
 
+    // Double-click: toggle favorite
+    card.addEventListener('dblclick', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      bus.emit('select:favorite', { index: i });
+    });
+
     // Option+click peek: show lightbox on press, close on release
     card.addEventListener('mousedown', (e) => {
       if (e.altKey && !e.metaKey && !e.shiftKey && e.button === 0) {
