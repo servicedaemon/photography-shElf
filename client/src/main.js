@@ -12,6 +12,7 @@ import { initUndo, showToast } from './undo.js';
 import { initStage, getStage } from './stage.js';
 import { createElf } from './elf.js';
 import { setThumbSize } from './theme.js';
+import { initMarkQueue } from './mark-queue.js';
 
 // App state
 let mode = 'idle'; // idle, loading, card
@@ -22,6 +23,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initGrid();
   initLightbox();
   initSelection();
+  initMarkQueue();
   initKeyboard();
   initFilters();
   initSidebar();

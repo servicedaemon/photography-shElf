@@ -9,6 +9,7 @@ import {
   setSelectedIndex,
   updateCardStatus,
 } from './grid.js';
+import { enqueueMark } from './mark-queue.js';
 
 let lastClickIndex = -1;
 let source = '';
@@ -59,12 +60,7 @@ export async function markSingle(index, status) {
   updateCardStatus(index, status);
   bus.emit(EVENTS.IMAGE_MARKED, { index, status });
 
-  const body = { filename: img.filename, status, source };
-  await fetch('/api/mark', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
+  enqueueMark(img.filename, status);
 }
 
 async function batchMark(start, end, status) {
@@ -74,15 +70,10 @@ async function batchMark(start, end, status) {
   for (let i = start; i <= end; i++) {
     filenames.push(images[i].filename);
     updateCardStatus(i, status);
+    enqueueMark(images[i].filename, status);
   }
 
   bus.emit(EVENTS.BATCH_MARKED, { start, end, status });
-
-  await fetch('/api/mark-batch', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ filenames, status, source }),
-  });
 }
 
 function advanceToNextUnmarked() {
@@ -153,16 +144,11 @@ export async function deselectAll() {
     if ((images[i].status || 'unmarked') !== 'unmarked') {
       filenames.push(images[i].filename);
       updateCardStatus(i, 'unmarked');
+      enqueueMark(images[i].filename, 'unmarked');
     }
   }
 
   if (filenames.length === 0) return;
 
   bus.emit(EVENTS.BATCH_MARKED, { start: 0, end: images.length - 1, status: 'unmarked' });
-
-  await fetch('/api/mark-batch', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ filenames, status: 'unmarked', source }),
-  });
 }
