@@ -1,0 +1,26 @@
+.stage-pill {
+  display: inline-block;
+  padding: 2px 10px;
+  margin: 0 10px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  font-family: 'Monaspace Neon', 'Monaspace NF', monospace;
+}
+.stage-pill.stage-cull {
+  background: rgba(137, 180, 250, 0.15);
+  color: #89b4fa;
+  border: 1px solid rgba(137, 180, 250, 0.3);
+}
+.stage-pill.stage-heroes {
+  background: rgba(249, 226, 175, 0.15);
+  color: #f9e2af;
+  border: 1px solid rgba(249, 226, 175, 0.3);
+}
+.stage-pill.stage-final {
+  background: rgba(166, 227, 161, 0.15);
+  color: #a6e3a1;
+  border: 1px solid rgba(166, 227, 161, 0.3);
+}

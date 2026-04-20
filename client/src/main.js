@@ -44,6 +44,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Re-render header stats when marks change
   bus.on(EVENTS.IMAGE_MARKED, () => renderHeader());
   bus.on(EVENTS.BATCH_MARKED, () => renderHeader());
+  bus.on(EVENTS.STAGE_CHANGED, () => renderHeader());
 });
 
 // --- Header ---
@@ -61,15 +62,22 @@ function renderHeader() {
     `;
   } else if (mode === 'card') {
     const images = getImages();
-    const keeps = images.filter((i) => (i.status || 'unmarked') === 'keep').length;
-    const favs = images.filter((i) => (i.status || 'unmarked') === 'favorite').length;
-    const rejects = images.filter((i) => (i.status || 'unmarked') === 'reject').length;
-    const unsorted = images.length - keeps - favs - rejects;
-    const hasMarks = keeps + favs + rejects > 0;
+    let keeps = 0, favs = 0, rejects = 0;
+    for (const i of images) {
+      const s = i.status || 'unmarked';
+      if (s === 'keep') keeps++;
+      else if (s === 'favorite') favs++;
+      else if (s === 'reject') rejects++;
+    }
+    const total = keeps + favs + rejects;
+    const unsorted = images.length - total;
+    const hasMarks = total > 0;
+    const stage = getStage();
 
     header.innerHTML = `
       <div class="elf-corner" id="header-elf"></div>
       <h1>Shelf</h1>
+      <span class="stage-pill stage-${stage.toLowerCase()}">${stage}</span>
       <span class="stat stat-keep">${keeps} keep</span>
       <span class="stat stat-favorite">${favs} fav</span>
       <span class="stat stat-reject">${rejects} reject</span>
@@ -80,10 +88,8 @@ function renderHeader() {
         <input type="range" min="150" max="500" value="280" id="thumb-slider">
       </div>
       ${hasMarks ? '<button class="btn btn-muted" id="btn-deselect-all">Deselect All</button>' : ''}
-      <button class="btn btn-primary" id="btn-sort">Sort to Folders</button>
-      <button class="btn btn-muted" id="btn-open-editor">Edit Favorites in Lightroom</button>
-      <button class="btn btn-muted" id="btn-scan-camera">Scan for Camera</button>
-      <button class="btn btn-gold" id="btn-select-dir">Select Directory</button>
+      <button class="btn btn-muted" id="btn-scan-camera">Scan Card</button>
+      <button class="btn btn-gold" id="btn-select-dir">New Shoot</button>
     `;
   }
 
@@ -108,8 +114,6 @@ function renderHeader() {
 function bindHeaderButtons() {
   document.getElementById('btn-scan-camera')?.addEventListener('click', scanForCamera);
   document.getElementById('btn-select-dir')?.addEventListener('click', selectDirectory);
-  document.getElementById('btn-sort')?.addEventListener('click', handleSort);
-  document.getElementById('btn-open-editor')?.addEventListener('click', handleOpenEditor);
   document.getElementById('btn-deselect-all')?.addEventListener('click', async () => {
     await deselectAll();
     renderHeader();
