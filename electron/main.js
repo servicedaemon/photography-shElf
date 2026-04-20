@@ -7,6 +7,7 @@ import getPort from 'get-port';
 import { startServer, stopServer } from './server-process.js';
 import { loadBounds, saveBounds } from './window-state.js';
 import { registerIpc } from './ipc.js';
+import { buildMenu } from './menu.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const isDev = !app.isPackaged;
@@ -62,6 +63,7 @@ async function createWindow() {
   });
 
   registerIpc(() => mainWindow);
+  await buildMenu({ mainWindow, isDev, serverPort });
 }
 
 app.whenReady().then(createWindow);

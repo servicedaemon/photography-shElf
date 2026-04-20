@@ -52,6 +52,11 @@ document.addEventListener('DOMContentLoaded', () => {
   bus.on(EVENTS.IMAGE_MARKED, () => renderHeader());
   bus.on(EVENTS.BATCH_MARKED, () => renderHeader());
   bus.on(EVENTS.STAGE_CHANGED, () => renderHeader());
+
+  // Electron menu → renderer bridge for "Open Folder" / "Open Recent"
+  window.addEventListener('shelf:load-folder', (e) => {
+    if (e.detail && e.detail.path) loadSource(e.detail.path);
+  });
 });
 
 // --- Header ---
