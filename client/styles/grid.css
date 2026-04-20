@@ -1,0 +1,224 @@
+/* Grid + Cards — gallery treatment with minimal chrome.
+   Status shows via top-edge color bar + badge; selection glows amber. */
+
+#grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(var(--thumb-size), 1fr));
+  gap: 8px;
+  padding: 16px 20px 100px;
+  min-height: calc(100vh - var(--header-height) - 48px);
+}
+
+/* ─── Card ───────────────────────────────────────────────────────────── */
+
+.card {
+  position: relative;
+  aspect-ratio: 3 / 2;
+  overflow: hidden;
+  cursor: pointer;
+  border-radius: var(--radius);
+  background: var(--bg-card);
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.3),
+    0 0 0 1px var(--hairline);
+  transition:
+    box-shadow var(--transition-fast),
+    transform var(--transition-fast);
+  isolation: isolate;
+}
+
+.card:hover {
+  box-shadow:
+    0 8px 24px rgba(0, 0, 0, 0.5),
+    0 0 0 1px var(--hairline-boldest);
+  transform: translateY(-2px);
+  z-index: 1;
+}
+
+.card.selected {
+  box-shadow:
+    0 0 0 2px var(--amber),
+    0 8px 24px rgba(224, 168, 46, 0.25),
+    0 0 40px rgba(224, 168, 46, 0.08);
+  z-index: 2;
+}
+
+/* Top-edge status bar. Sits above the image, crisp horizontal rule. */
+.card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: transparent;
+  z-index: 2;
+  transition: background var(--transition-fast);
+}
+
+.card.keep::before     { background: var(--blue); }
+.card.reject::before   { background: var(--rose); }
+.card.favorite::before { background: var(--amber); }
+
+/* Status inner-glow — deeper for favorite, subtler for keep/reject */
+.card.keep {
+  box-shadow:
+    0 0 0 1px rgba(140, 160, 184, 0.35),
+    inset 0 0 40px rgba(140, 160, 184, 0.08);
+}
+
+.card.keep.selected {
+  box-shadow:
+    0 0 0 2px var(--amber),
+    0 8px 24px rgba(224, 168, 46, 0.25),
+    inset 0 0 40px rgba(140, 160, 184, 0.08);
+}
+
+.card.favorite {
+  box-shadow:
+    0 0 0 1px rgba(224, 168, 46, 0.45),
+    inset 0 0 60px rgba(224, 168, 46, 0.10),
+    0 0 24px rgba(224, 168, 46, 0.08);
+}
+
+.card.favorite.selected {
+  box-shadow:
+    0 0 0 2px var(--amber),
+    0 8px 32px rgba(224, 168, 46, 0.35),
+    inset 0 0 60px rgba(224, 168, 46, 0.10);
+}
+
+.card.reject {
+  box-shadow:
+    0 0 0 1px rgba(192, 132, 132, 0.35),
+    inset 0 0 40px rgba(192, 132, 132, 0.05);
+}
+
+.card.reject img {
+  filter: saturate(0.25) brightness(0.55) contrast(0.9);
+}
+
+/* ─── Thumbnail image ────────────────────────────────────────────────── */
+
+.card img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transition: filter var(--transition-medium), transform var(--transition-medium);
+}
+
+.card:hover img {
+  transform: scale(1.02);
+}
+
+/* Placeholder / skeleton */
+
+.card .placeholder {
+  position: absolute;
+  inset: 0;
+  background: var(--bg-card);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.card .placeholder.blur-up {
+  filter: blur(8px);
+  transform: scale(1.1);
+}
+
+.card .skeleton {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    var(--bg-card) 25%,
+    var(--bg-elevated) 50%,
+    var(--bg-card) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.8s infinite var(--ease-in-out);
+}
+
+@keyframes shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* ─── Filename label (hover reveal) ──────────────────────────────────── */
+
+.card .label {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 10px 12px 9px;
+  font-size: 10.5px;
+  font-family: var(--font-mono);
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  background: linear-gradient(
+    to top,
+    rgba(0, 0, 0, 0.88),
+    rgba(0, 0, 0, 0.6) 70%,
+    transparent
+  );
+  text-align: left;
+  opacity: 0;
+  transition: opacity var(--transition-fast);
+  color: var(--ink);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+  pointer-events: none;
+}
+
+.card:hover .label,
+.card.selected .label {
+  opacity: 1;
+}
+
+/* ─── Status badge (top right) ──────────────────────────────────────── */
+
+.card .badge {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  padding: 2px 7px 2px 7px;
+  border-radius: 2px;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  z-index: 3;
+}
+
+.card.keep .badge {
+  background: rgba(140, 160, 184, 0.92);
+  color: var(--bg);
+}
+
+.card.reject .badge {
+  background: rgba(192, 132, 132, 0.92);
+  color: var(--bg);
+}
+
+.card.favorite .badge {
+  background: rgba(224, 168, 46, 0.95);
+  color: var(--bg);
+  box-shadow: 0 0 12px rgba(224, 168, 46, 0.4);
+}
+
+/* ─── Rotation animation ────────────────────────────────────────────── */
+
+.card.rotating {
+  animation: card-rotate 0.35s var(--ease-out);
+}
+
+@keyframes card-rotate {
+  0%   { transform: rotate(0deg) scale(1); }
+  40%  { transform: rotate(3deg) scale(0.96); }
+  100% { transform: rotate(0deg) scale(1); }
+}
