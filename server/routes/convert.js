@@ -11,11 +11,22 @@ export const convertRoutes = Router();
 
 const RAW_EXTENSIONS = /\.(cr3|cr2|arw|nef|raf)$/i;
 
-// Check if dnglab is available
+const DNGLAB_CANDIDATES = [
+  '/opt/homebrew/bin/dnglab',     // macOS Apple Silicon
+  '/usr/local/bin/dnglab',        // macOS Intel
+  '/usr/bin/dnglab',              // Linux-style
+  'C:\\ProgramData\\chocolatey\\bin\\dnglab.exe', // Windows Chocolatey
+];
+
 async function findDnglab() {
+  for (const p of DNGLAB_CANDIDATES) {
+    if (fs.existsSync(p)) return p;
+  }
+  // Last resort: try `which` (dev mode only, inherits shell PATH)
   try {
     const { stdout } = await execFileAsync('which', ['dnglab']);
-    return stdout.trim();
+    const p = stdout.trim();
+    return p || null;
   } catch {
     return null;
   }

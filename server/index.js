@@ -7,6 +7,8 @@ import { sortingRoutes } from './routes/sorting.js';
 import { metadataRoutes } from './routes/metadata.js';
 import { configRoutes } from './routes/config.js';
 import { convertRoutes } from './routes/convert.js';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
 const app = express();
 const PORT = parseInt(process.env.PORT || '3457');
@@ -47,6 +49,16 @@ app.use('/api', sortingRoutes);
 app.use('/api', metadataRoutes);
 app.use('/api', configRoutes);
 app.use('/api', convertRoutes);
+
+// In production (packaged Electron), serve the Vite-built static files + SPA fallback.
+if (process.env.NODE_ENV === 'production') {
+  const distPath = process.env.SHELF_DIST_PATH
+    || path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'dist');
+  app.use(express.static(distPath));
+  app.get(/^(?!\/api\/).*/, (_req, res) => {
+    res.sendFile(path.join(distPath, 'index.html'));
+  });
+}
 
 app.listen(PORT, () => {
   console.log('');
