@@ -9,6 +9,7 @@ import { initFilters } from './filters.js';
 import { initSidebar } from './sidebar.js';
 import { initActions } from './actions.js';
 import { initUndo, showToast } from './undo.js';
+import { initStage, getStage } from './stage.js';
 import { createElf } from './elf.js';
 import { setThumbSize } from './theme.js';
 
@@ -26,6 +27,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initSidebar();
   initActions();
   initUndo();
+  initStage();
 
   renderHeader();
   showEmptyState();

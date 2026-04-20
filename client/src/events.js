@@ -38,6 +38,10 @@ export const EVENTS = {
   TOAST: 'toast',
 
   // Actions
+  STAGE_CHANGED: 'stage:changed',
+  MARK_ROLLBACK: 'mark:rollback',
+
+  // Actions
   SORT_START: 'sort:start',
   SORT_COMPLETE: 'sort:complete',
   REFRESH: 'refresh',
