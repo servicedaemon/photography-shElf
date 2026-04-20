@@ -381,21 +381,20 @@ async function handleSort() {
     });
     const data = await res.json();
 
-    // Show sparkle elf
-    const m = data.moved;
-    showToast(
-      `Sorted! ${m.keep} keeps, ${m.favorite} favs, ${m.reject} rejects, ${m.unsorted} unsorted`,
-      'success',
-    );
-
     if (data.errors) {
       showToast(`${data.errors.length} files had errors`, 'error');
     }
 
-    mode = 'idle';
-    source = '';
-    renderHeader();
-    showEmptyState();
+    // Compute the keeps folder path to enable "Pick Heroes" bridge button
+    const now = new Date();
+    const dateStr = String(now.getMonth() + 1).padStart(2, '0') + '-' + now.getFullYear();
+    const safeName = name.replace(/[^a-zA-Z0-9 _-]/g, '').trim();
+    const configRes = await fetch('/api/config');
+    const config = await configRes.json();
+    const sortDir = config.sortDir || '';
+    const keepsPath = sortDir ? `${sortDir}/Keeps - ${dateStr} - ${safeName}` : null;
+
+    showSortBridge(data.moved, keepsPath);
   } catch (e) {
     showToast('Sort failed: ' + e.message, 'error');
   }
@@ -523,6 +522,51 @@ async function handlePromoteFavorites() {
   } catch (e) {
     showToast('Promote failed: ' + e.message, 'error');
   }
+}
+
+function showSortBridge(moved, keepsPath) {
+  const overlay = document.getElementById('modal-overlay');
+  const total = Object.values(moved).reduce((a, b) => a + b, 0);
+  const parts = [];
+  if (moved.keep) parts.push(`${moved.keep} keeps`);
+  if (moved.favorite) parts.push(`${moved.favorite} sparks`);
+  if (moved.reject) parts.push(`${moved.reject} rejects`);
+  if (moved.unsorted) parts.push(`${moved.unsorted} unsorted`);
+
+  overlay.innerHTML = `
+    <div class="modal">
+      <h2>Sorted ${total} images</h2>
+      <p>${parts.join(' · ')}</p>
+      <div class="modal-buttons">
+        <button class="btn btn-muted" id="bridge-done">Done</button>
+        <button class="btn btn-muted" id="bridge-new">Start New Shoot</button>
+        ${keepsPath ? `<button class="btn btn-primary" id="bridge-heroes">Pick Heroes</button>` : ''}
+      </div>
+    </div>
+  `;
+  overlay.classList.add('active');
+
+  const close = () => overlay.classList.remove('active');
+
+  document.getElementById('bridge-done').addEventListener('click', () => {
+    close();
+    mode = 'idle';
+    source = '';
+    renderHeader();
+    showEmptyState();
+  });
+  document.getElementById('bridge-new').addEventListener('click', () => {
+    close();
+    mode = 'idle';
+    source = '';
+    renderHeader();
+    showEmptyState();
+    selectDirectory();
+  });
+  document.getElementById('bridge-heroes')?.addEventListener('click', () => {
+    close();
+    loadSource(keepsPath);
+  });
 }
 
 function showPromoteBridge(count, folderName) {
