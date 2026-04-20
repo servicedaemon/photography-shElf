@@ -1,7 +1,8 @@
-// Floating batch action bar
+// Floating batch action bar — stage-aware
 
 import { bus, EVENTS } from './events.js';
 import { getImages } from './grid.js';
+import { getStage } from './stage.js';
 
 let actionsEl = null;
 let hasConvertible = false;
@@ -11,9 +12,10 @@ let currentSource = '';
 export function initActions() {
   actionsEl = document.getElementById('actions');
 
-  bus.on(EVENTS.STATE_CHANGED, () => updateActions());
-  bus.on(EVENTS.IMAGE_MARKED, () => updateActions());
-  bus.on(EVENTS.BATCH_MARKED, () => updateActions());
+  bus.on(EVENTS.STATE_CHANGED, updateActions);
+  bus.on(EVENTS.IMAGE_MARKED, updateActions);
+  bus.on(EVENTS.BATCH_MARKED, updateActions);
+  bus.on(EVENTS.STAGE_CHANGED, updateActions);
   bus.on(EVENTS.MODE_CHANGED, ({ newSource }) => {
     currentSource = newSource || '';
     checkConvertible();
@@ -50,13 +52,11 @@ async function checkFavoritesFolder() {
     hasFavoritesFolder = false;
     return;
   }
-  // If we ARE in the Favorites folder, show the button
   if (currentSource.endsWith('/Favorites')) {
     hasFavoritesFolder = true;
     updateActions();
     return;
   }
-  // Check if a Favorites subfolder exists by listing the directory
   const favPath = currentSource + '/Favorites';
   try {
     const res = await fetch(`/api/images?source=${encodeURIComponent(favPath)}`);
@@ -67,50 +67,66 @@ async function checkFavoritesFolder() {
   updateActions();
 }
 
+function countMarks(images) {
+  let keeps = 0, favs = 0, rejects = 0;
+  for (const i of images) {
+    const s = i.status || 'unmarked';
+    if (s === 'keep') keeps++;
+    else if (s === 'favorite') favs++;
+    else if (s === 'reject') rejects++;
+  }
+  return { keeps, favs, rejects, total: keeps + favs + rejects };
+}
+
 function updateActions() {
   if (!actionsEl) return;
   const images = getImages();
+  const { keeps, favs, rejects, total } = countMarks(images);
+  const stage = getStage();
 
-  const keeps = images.filter((i) => (i.status || 'unmarked') === 'keep').length;
-  const favs = images.filter((i) => (i.status || 'unmarked') === 'favorite').length;
-  const rejects = images.filter((i) => (i.status || 'unmarked') === 'reject').length;
-  const count = keeps + favs + rejects;
+  const buttons = [];
 
-  const showBar = count > 0 || hasConvertible || hasFavoritesFolder;
-
-  if (showBar) {
-    actionsEl.classList.add('visible');
-    let html = '';
-
-    if (count > 0) {
-      const parts = [];
-      if (keeps) parts.push(`${keeps} keeps`);
-      if (favs) parts.push(`${favs} favs`);
-      if (rejects) parts.push(`${rejects} rejects`);
-      html += `<span class="action-count">${parts.join(', ')}</span>`;
-      html += `<button class="btn btn-primary" id="action-sort">Sort to Folders</button>`;
-    }
-
-    if (hasConvertible) {
-      html += `<button class="btn btn-gold" id="action-convert">Convert to DNG</button>`;
-    }
-
-    if (hasFavoritesFolder) {
-      html += `<button class="btn btn-muted" id="action-open-editor">Edit Favorites in Lightroom</button>`;
-    }
-
-    actionsEl.innerHTML = html;
-
-    document.getElementById('action-sort')?.addEventListener('click', () => {
-      bus.emit('action:sort');
-    });
-    document.getElementById('action-convert')?.addEventListener('click', () => {
-      bus.emit('action:convert');
-    });
-    document.getElementById('action-open-editor')?.addEventListener('click', () => {
-      bus.emit('action:open-editor');
-    });
-  } else {
-    actionsEl.classList.remove('visible');
+  if (stage === 'CULL' && total > 0) {
+    buttons.push(`<button class="btn btn-primary" id="action-sort">Sort to Folders</button>`);
   }
+
+  if (stage === 'HEROES' && favs > 0) {
+    buttons.push(`<button class="btn btn-primary" id="action-promote">Promote ${favs} to Favorites</button>`);
+  }
+
+  if (stage === 'FINAL' && hasConvertible) {
+    buttons.push(`<button class="btn btn-gold" id="action-convert">Convert to DNG</button>`);
+  }
+
+  if (stage === 'FINAL' && hasFavoritesFolder) {
+    buttons.push(`<button class="btn btn-muted" id="action-open-editor">Edit in Lightroom</button>`);
+  }
+  // Also allow Lightroom handoff from HEROES if Favorites subfolder exists
+  if (stage === 'HEROES' && hasFavoritesFolder) {
+    buttons.push(`<button class="btn btn-muted" id="action-open-editor">Edit Favorites in Lightroom</button>`);
+  }
+
+  if (buttons.length === 0) {
+    actionsEl.classList.remove('visible');
+    actionsEl.innerHTML = '';
+    return;
+  }
+
+  actionsEl.classList.add('visible');
+
+  let countHtml = '';
+  if (total > 0) {
+    const parts = [];
+    if (keeps) parts.push(`${keeps} keep`);
+    if (favs) parts.push(`${favs} fav`);
+    if (rejects) parts.push(`${rejects} reject`);
+    countHtml = `<span class="action-count">${parts.join(', ')}</span>`;
+  }
+
+  actionsEl.innerHTML = countHtml + buttons.join('');
+
+  document.getElementById('action-sort')?.addEventListener('click', () => bus.emit('action:sort'));
+  document.getElementById('action-promote')?.addEventListener('click', () => bus.emit('action:promote-favorites'));
+  document.getElementById('action-convert')?.addEventListener('click', () => bus.emit('action:convert'));
+  document.getElementById('action-open-editor')?.addEventListener('click', () => bus.emit('action:open-editor'));
 }

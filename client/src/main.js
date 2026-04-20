@@ -38,6 +38,7 @@ document.addEventListener('DOMContentLoaded', () => {
   bus.on('action:sort', handleSort);
   bus.on('action:convert', handleConvert);
   bus.on('action:open-editor', handleOpenEditor);
+  bus.on('action:promote-favorites', handlePromoteFavorites);
   bus.on(EVENTS.REFRESH, refresh);
 
   // Re-render header stats when marks change
@@ -478,6 +479,84 @@ async function handleOpenEditor() {
   } catch (e) {
     showToast('Failed to open Lightroom: ' + e.message, 'error');
   }
+}
+
+async function handlePromoteFavorites() {
+  const images = getImages();
+  const favs = images.filter(i => (i.status || 'unmarked') === 'favorite');
+
+  if (favs.length === 0) {
+    showToast('No favorites marked', 'error');
+    return;
+  }
+
+  const confirmed = await showConfirmModal(
+    'Promote Favorites',
+    `Move ${favs.length} favorite image${favs.length !== 1 ? 's' : ''} into the Favorites subfolder?`,
+  );
+  if (!confirmed) return;
+
+  // The current source is a Keeps folder; extract folder name for the API
+  const folderName = source.split('/').pop();
+
+  try {
+    // First, persist favorites to the .favorites-state.json file (parallel)
+    await Promise.all(favs.map(img =>
+      fetch(`/api/folder/${encodeURIComponent(folderName)}/mark`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ filename: img.filename, status: 'favorite' }),
+      })
+    ));
+
+    // Then trigger the save-favorites move
+    const res = await fetch(`/api/folder/${encodeURIComponent(folderName)}/save-favorites`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    const data = await res.json();
+
+    showToast(`Promoted ${data.moved} image${data.moved !== 1 ? 's' : ''} to Favorites`, 'success');
+
+    // Show bridge card
+    showPromoteBridge(data.moved, folderName);
+  } catch (e) {
+    showToast('Promote failed: ' + e.message, 'error');
+  }
+}
+
+function showPromoteBridge(count, folderName) {
+  const overlay = document.getElementById('modal-overlay');
+  overlay.innerHTML = `
+    <div class="modal">
+      <h2>Promoted ${count} to Favorites</h2>
+      <p>Your heroes are saved in the Favorites subfolder.</p>
+      <div class="modal-buttons">
+        <button class="btn btn-muted" id="bridge-done">Done</button>
+        <button class="btn btn-muted" id="bridge-keep-reviewing">Keep Reviewing</button>
+        <button class="btn btn-primary" id="bridge-open-favorites">Open Favorites</button>
+      </div>
+    </div>
+  `;
+  overlay.classList.add('active');
+
+  const close = () => overlay.classList.remove('active');
+
+  document.getElementById('bridge-done').addEventListener('click', () => {
+    close();
+    mode = 'idle';
+    source = '';
+    renderHeader();
+    showEmptyState();
+  });
+  document.getElementById('bridge-keep-reviewing').addEventListener('click', () => {
+    close();
+    bus.emit(EVENTS.REFRESH);
+  });
+  document.getElementById('bridge-open-favorites').addEventListener('click', () => {
+    close();
+    loadSource(source + '/Favorites');
+  });
 }
 
 // --- Refresh (after undo) ---
