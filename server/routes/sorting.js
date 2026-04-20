@@ -271,3 +271,119 @@ sortingRoutes.post('/folder/:folder/save-favorites', (req, res) => {
 
   res.json({ moved, errors: errors.length > 0 ? errors : undefined });
 });
+
+// GET /api/sibling-shoots?source=/path/to/current/folder
+// Returns sibling folders that look like shoots (have an unsorted/ subfolder or match shoot pattern),
+// plus the parent dir itself as context. Used by the Move-to-Shoot modal.
+sortingRoutes.get('/sibling-shoots', (req, res) => {
+  const source = req.query.source;
+  if (!source) return res.status(400).json({ error: 'source required' });
+
+  const sourcePath = path.resolve(source);
+  if (!fs.existsSync(sourcePath)) return res.status(404).json({ error: 'Not found' });
+
+  // Walk up to the parent. If current source is ".../YYYY-MM - Shoot/keeps", climb to the
+  // photography root (grandparent) so we list peer shoots. Also track the current shoot root
+  // so it is excluded from siblings.
+  let parent = path.dirname(sourcePath);
+  let shootRoot = sourcePath;
+  const base = path.basename(sourcePath);
+  if (['keeps', 'unsorted', 'favorites', 'rejects', 'edited'].includes(base.toLowerCase())) {
+    shootRoot = parent;
+    parent = path.dirname(parent);
+  }
+
+  let entries;
+  try {
+    entries = fs.readdirSync(parent, { withFileTypes: true });
+  } catch {
+    return res.status(500).json({ error: 'Cannot read parent directory' });
+  }
+
+  const siblings = [];
+  for (const entry of entries) {
+    if (!entry.isDirectory() || entry.name.startsWith('.')) continue;
+    const p = path.join(parent, entry.name);
+    if (p === sourcePath || p === shootRoot) continue; // skip self + current shoot root
+    siblings.push({ name: entry.name, path: p });
+  }
+
+  res.json({ parent, shootRoot, siblings });
+});
+
+// POST /api/move-to-shoot
+// Body: { source: "/path/to/source", filenames: [...], dest: { existingPath?: string, newShootName?: string } }
+// Moves the selected filenames from source into <dest>/unsorted/, creating folders as needed.
+// When newShootName is provided, creates <parent>/<newShootName>/unsorted/ (parent is the source's grandparent if source is a sub-folder, else the source's parent).
+sortingRoutes.post('/move-to-shoot', async (req, res) => {
+  const { source, filenames, dest } = req.body || {};
+  if (!source || !Array.isArray(filenames) || filenames.length === 0 || !dest) {
+    return res.status(400).json({ error: 'source, filenames, and dest required' });
+  }
+  if (!filenames.every(validateFilename)) {
+    return res.status(400).json({ error: 'Invalid filename in list' });
+  }
+
+  const sourcePath = path.resolve(source);
+  if (!fs.existsSync(sourcePath) || !fs.statSync(sourcePath).isDirectory()) {
+    return res.status(404).json({ error: 'Source not found' });
+  }
+
+  // Resolve the destination folder
+  let destFolder;
+  if (dest.existingPath) {
+    destFolder = path.resolve(dest.existingPath);
+    if (!fs.existsSync(destFolder) || !fs.statSync(destFolder).isDirectory()) {
+      return res.status(404).json({ error: 'Destination folder not found' });
+    }
+  } else if (dest.newShootName) {
+    const safeName = String(dest.newShootName).replace(/[^a-zA-Z0-9 _-]/g, '').trim();
+    if (!safeName) return res.status(400).json({ error: 'Invalid new shoot name' });
+
+    // Parent for new shoot: if source is inside a sub-folder (keeps/unsorted/etc), use the grandparent
+    let parent = path.dirname(sourcePath);
+    const base = path.basename(sourcePath);
+    if (['keeps', 'unsorted', 'favorites', 'rejects', 'edited'].includes(base.toLowerCase())) {
+      parent = path.dirname(parent);
+    }
+    destFolder = path.join(parent, safeName);
+    fs.mkdirSync(destFolder, { recursive: true });
+  } else {
+    return res.status(400).json({ error: 'dest must have existingPath or newShootName' });
+  }
+
+  // Final target is <destFolder>/unsorted/
+  const unsortedDir = path.join(destFolder, 'unsorted');
+  fs.mkdirSync(unsortedDir, { recursive: true });
+
+  // Move files
+  const state = getState(sourcePath);
+  let moved = 0;
+  const errors = [];
+  for (const filename of filenames) {
+    const src = path.join(sourcePath, filename);
+    const tgt = path.join(unsortedDir, filename);
+    try {
+      if (!fs.existsSync(src)) {
+        errors.push({ filename, error: 'source file missing' });
+        continue;
+      }
+      if (fs.existsSync(tgt)) {
+        errors.push({ filename, error: 'destination already has a file with this name' });
+        continue;
+      }
+      fs.copyFileSync(src, tgt);
+      fs.unlinkSync(src);
+      // Clear any marking state for this file in the source
+      if (state[filename] !== undefined) {
+        delete state[filename];
+      }
+      moved++;
+    } catch (e) {
+      errors.push({ filename, error: e.message });
+    }
+  }
+  setState(sourcePath, state);
+
+  res.json({ moved, destFolder, unsortedDir, errors: errors.length > 0 ? errors : [] });
+});

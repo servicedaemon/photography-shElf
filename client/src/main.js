@@ -3,7 +3,7 @@
 import { bus, EVENTS } from './events.js';
 import { initGrid, setGridData, getImages } from './grid.js';
 import { initLightbox } from './lightbox.js';
-import { initSelection, deselectAll } from './selection.js';
+import { initSelection, deselectAll, getSelectedFilenames, clearSelection } from './selection.js';
 import { initKeyboard } from './keyboard.js';
 import { initFilters } from './filters.js';
 import { initSidebar } from './sidebar.js';
@@ -46,6 +46,7 @@ document.addEventListener('DOMContentLoaded', () => {
   bus.on('action:convert', handleConvert);
   bus.on('action:open-editor', handleOpenEditor);
   bus.on('action:promote-favorites', handlePromoteFavorites);
+  bus.on('action:move-to-shoot', handleMoveToShoot);
   bus.on(EVENTS.REFRESH, refresh);
 
   // Re-render header stats when marks change
@@ -605,6 +606,103 @@ async function handlePromoteFavorites() {
   } catch (e) {
     showToast('Promote failed: ' + e.message, 'error');
   }
+}
+
+async function handleMoveToShoot() {
+  const filenames = getSelectedFilenames();
+  if (filenames.length === 0) {
+    showToast('Nothing selected', 'error');
+    return;
+  }
+
+  // Fetch sibling shoots
+  let siblings = [];
+  try {
+    const res = await fetch(`/api/sibling-shoots?source=${encodeURIComponent(source)}`);
+    if (res.ok) {
+      const data = await res.json();
+      siblings = data.siblings || [];
+    }
+  } catch {
+    // proceed with empty list
+  }
+
+  const dest = await showMoveToShootModal(filenames.length, siblings);
+  if (!dest) return;
+
+  try {
+    const res = await fetch('/api/move-to-shoot', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ source, filenames, dest }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      showToast(data.error || 'Move failed', 'error');
+      return;
+    }
+    showToast(`Moved ${data.moved} image${data.moved !== 1 ? 's' : ''} to ${dest.newShootName || dest.existingPath?.split('/').pop() || 'shoot'}`, 'success');
+    if (data.errors && data.errors.length) {
+      showToast(`${data.errors.length} files had errors`, 'error');
+    }
+    clearSelection();
+    bus.emit(EVENTS.REFRESH);
+  } catch (e) {
+    showToast('Move failed: ' + e.message, 'error');
+  }
+}
+
+function showMoveToShootModal(count, siblings) {
+  return new Promise((resolve) => {
+    const overlay = document.getElementById('modal-overlay');
+    const siblingList = siblings.map(s => `
+      <button class="folder-btn sibling-btn" data-path="${s.path}">${s.name}</button>
+    `).join('');
+
+    overlay.innerHTML = `
+      <div class="modal">
+        <h2>Move ${count} to Shoot</h2>
+        <p>Files will land in the destination\u2019s <code>unsorted/</code> folder.</p>
+        ${siblings.length > 0 ? `
+          <h3 style="font-size:10px;letter-spacing:0.2em;text-transform:uppercase;color:var(--ink-dim);margin:14px 0 6px">Existing shoots</h3>
+          ${siblingList}
+        ` : ''}
+        <h3 style="font-size:10px;letter-spacing:0.2em;text-transform:uppercase;color:var(--ink-dim);margin:14px 0 6px">Or create new</h3>
+        <input class="modal-input" id="move-newshoot" placeholder="New shoot name" autofocus>
+        <div class="modal-buttons">
+          <button class="btn btn-muted" id="move-cancel">Cancel</button>
+          <button class="btn btn-primary" id="move-confirm-new">Create &amp; Move</button>
+        </div>
+      </div>
+    `;
+    overlay.classList.add('active');
+
+    const close = (value) => {
+      overlay.classList.remove('active');
+      resolve(value);
+    };
+
+    overlay.querySelectorAll('.sibling-btn').forEach(btn => {
+      btn.addEventListener('click', () => close({ existingPath: btn.dataset.path }));
+    });
+    document.getElementById('move-confirm-new').addEventListener('click', () => {
+      const input = document.getElementById('move-newshoot');
+      const name = input.value.trim();
+      if (!name) return;
+      close({ newShootName: name });
+    });
+    document.getElementById('move-cancel').addEventListener('click', () => close(null));
+
+    const input = document.getElementById('move-newshoot');
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && input.value.trim()) close({ newShootName: input.value.trim() });
+      if (e.key === 'Escape') close(null);
+    });
+
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) close(null);
+    });
+  });
 }
 
 function showSortBridge(moved, keepsPath) {

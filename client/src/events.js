@@ -47,4 +47,7 @@ export const EVENTS = {
   REFRESH: 'refresh',
   CONVERT_START: 'convert:start',
   CONVERT_COMPLETE: 'convert:complete',
+
+  // Selection
+  SELECTION_CHANGED: 'selection:changed',
 };

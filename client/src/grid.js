@@ -10,9 +10,22 @@ let activeFilters = new Set(['all']);
 let selectedIndex = -1;
 let gridEl = null;
 let observer = null;
+let currentSelectionRange = null; // tracked via SELECTION_CHANGED event
 
 export function initGrid() {
   gridEl = document.getElementById('grid');
+
+  bus.on(EVENTS.SELECTION_CHANGED, ({ range }) => {
+    currentSelectionRange = range;
+    const cards = gridEl?.querySelectorAll('.card') || [];
+    cards.forEach((card, i) => {
+      if (range && i >= range.start && i <= range.end) {
+        card.classList.add('selection');
+      } else {
+        card.classList.remove('selection');
+      }
+    });
+  });
 }
 
 export function setGridData(newImages, newSource, newFolder, newMode) {
@@ -166,6 +179,10 @@ function renderGrid() {
     const status = img.status || 'unmarked';
     if (status !== 'unmarked') card.classList.add(status);
     if (i === selectedIndex) card.classList.add('selected');
+
+    if (currentSelectionRange && i >= currentSelectionRange.start && i <= currentSelectionRange.end) {
+      card.classList.add('selection');
+    }
 
     // Skeleton placeholder
     const skeleton = document.createElement('div');

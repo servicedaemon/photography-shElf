@@ -43,6 +43,19 @@
   z-index: 2;
 }
 
+.card.selection {
+  box-shadow:
+    0 0 0 2px rgba(224, 168, 46, 0.6),
+    0 0 20px rgba(224, 168, 46, 0.2);
+}
+
+.card.selection.selected {
+  box-shadow:
+    0 0 0 2px var(--amber),
+    0 0 0 4px rgba(224, 168, 46, 0.3),
+    0 0 28px rgba(224, 168, 46, 0.35);
+}
+
 /* Top-edge status bar. Sits above the image, crisp horizontal rule. */
 .card::before {
   content: '';

@@ -9,7 +9,7 @@ import {
   getSource,
 } from './grid.js';
 import { isLightboxOpen, navigateLightbox, toggleLightbox } from './lightbox.js';
-import { keepAndAdvance, favoriteAndAdvance, rejectAndAdvance, unmarkAndAdvance } from './selection.js';
+import { keepAndAdvance, favoriteAndAdvance, rejectAndAdvance, unmarkAndAdvance, clearSelection } from './selection.js';
 
 let shortcutsVisible = false;
 
@@ -35,6 +35,7 @@ function handleKeydown(e) {
       break;
 
     case 'Escape':
+      clearSelection();
       if (isLightboxOpen()) {
         toggleLightbox();
       } else if (shortcutsVisible) {
