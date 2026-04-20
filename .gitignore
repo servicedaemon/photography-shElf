@@ -1,4 +1,7 @@
 node_modules/
 dist/
+dist-electron/
 .DS_Store
 *.log
+test/fixtures/**
+test-results/

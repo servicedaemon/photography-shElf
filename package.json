@@ -23,7 +23,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.0.0",
-    "@playwright/test": "1.49",
+    "@playwright/test": "^1.59.1",
     "concurrently": "^9.1.0",
     "electron": "^33.4.11",
     "electron-builder": "^25.1.8",
@@ -57,17 +57,29 @@
     },
     "mac": {
       "category": "public.app-category.photography",
-      "target": ["dmg"],
+      "target": [
+        "dmg"
+      ],
       "icon": "electron/icon/source.png"
     },
     "win": {
-      "target": ["nsis"],
+      "target": [
+        "nsis"
+      ],
       "icon": "electron/icon/source.png"
     },
     "dmg": {
       "contents": [
-        { "x": 130, "y": 220 },
-        { "x": 410, "y": 220, "type": "link", "path": "/Applications" }
+        {
+          "x": 130,
+          "y": 220
+        },
+        {
+          "x": 410,
+          "y": 220,
+          "type": "link",
+          "path": "/Applications"
+        }
       ]
     }
   }
