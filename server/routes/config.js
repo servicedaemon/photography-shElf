@@ -18,7 +18,7 @@ configRoutes.put('/config', (req, res) => {
   const updates = req.body;
 
   // Only allow known config keys
-  const allowed = ['sortDir', 'thumbSize', 'defaultSource'];
+  const allowed = ['sortDir', 'thumbSize', 'defaultSource', 'recentShoots', 'hintStripVisible', 'windowBounds'];
   for (const key of Object.keys(updates)) {
     if (allowed.includes(key)) {
       current[key] = updates[key];
@@ -27,6 +27,20 @@ configRoutes.put('/config', (req, res) => {
 
   setConfig(current);
   res.json(current);
+});
+
+// Push a path onto the recent shoots list (dedup, cap at 10)
+configRoutes.post('/recent-shoots/push', (req, res) => {
+  const { path: p } = req.body;
+  if (!p || typeof p !== 'string') {
+    return res.status(400).json({ error: 'path required' });
+  }
+  const current = getConfig();
+  const list = Array.isArray(current.recentShoots) ? current.recentShoots : [];
+  const deduped = [p, ...list.filter(x => x !== p)].slice(0, 10);
+  current.recentShoots = deduped;
+  setConfig(current);
+  res.json({ recentShoots: deduped });
 });
 
 // Detect connected camera drives

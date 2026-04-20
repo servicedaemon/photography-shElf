@@ -321,10 +321,12 @@ async function loadSource(dir) {
 
   try {
     const res = await fetch(`/api/images?source=${encodeURIComponent(dir)}`);
-    const images = await res.json();
+    const data = await res.json();
+    const images = Array.isArray(data) ? data : data.images;
+    const stage = Array.isArray(data) ? 'CULL' : data.stage;
 
     mode = 'card';
-    bus.emit(EVENTS.MODE_CHANGED, { newMode: 'card', newSource: source, newFolder: '' });
+    bus.emit(EVENTS.MODE_CHANGED, { newMode: 'card', newSource: source, newFolder: '', stage });
     setGridData(images, source, '', 'card');
     renderHeader();
 
@@ -479,7 +481,8 @@ async function handleOpenEditor() {
 async function refresh() {
   if (mode === 'card' && source) {
     const res = await fetch(`/api/images?source=${encodeURIComponent(source)}`);
-    const images = await res.json();
+    const data = await res.json();
+    const images = Array.isArray(data) ? data : data.images;
     setGridData(images, source, '', 'card');
     renderHeader();
   }
