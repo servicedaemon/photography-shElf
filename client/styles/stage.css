@@ -24,3 +24,19 @@
   color: #a6e3a1;
   border: 1px solid rgba(166, 227, 161, 0.3);
 }
+
+body.drag-over::after {
+  content: 'Drop folder to load';
+  position: fixed;
+  inset: 0;
+  background: rgba(30, 30, 46, 0.85);
+  color: #f9e2af;
+  font-size: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  z-index: 10000;
+  border: 3px dashed #f9e2af;
+  font-family: 'Monaspace Neon', 'Monaspace NF', monospace;
+}

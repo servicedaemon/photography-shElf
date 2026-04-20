@@ -13,6 +13,7 @@ import { initStage, getStage } from './stage.js';
 import { createElf } from './elf.js';
 import { setThumbSize } from './theme.js';
 import { initMarkQueue } from './mark-queue.js';
+import { initIngest, pushRecentShoot, getRecentShoots } from './ingest.js';
 
 // App state
 let mode = 'idle'; // idle, loading, card
@@ -30,6 +31,10 @@ document.addEventListener('DOMContentLoaded', () => {
   initActions();
   initUndo();
   initStage();
+
+  initIngest((folderPath) => {
+    loadSource(folderPath);
+  });
 
   renderHeader();
   showEmptyState();
@@ -338,6 +343,7 @@ async function loadSource(dir) {
     bus.emit(EVENTS.MODE_CHANGED, { newMode: 'card', newSource: source, newFolder: '', stage });
     setGridData(images, source, '', 'card');
     renderHeader();
+    pushRecentShoot(source).catch(() => {});
 
     if (images.length === 0) {
       showToast('No images found in that directory', 'error');
