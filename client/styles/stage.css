@@ -87,13 +87,13 @@ body.drag-over::after {
   background: rgba(224, 168, 46, 0.08);
   color: var(--amber);
   border: 1px solid rgba(224, 168, 46, 0.25);
-  font-family: var(--font-display);
-  font-size: 18px;
-  font-weight: 500;
+  font-family: var(--font-mono);
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0;
   cursor: pointer;
   z-index: 500;
   transition: all var(--transition-fast);
-  font-variation-settings: 'opsz' 72, 'SOFT' 80;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
 }
 

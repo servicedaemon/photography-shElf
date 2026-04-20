@@ -95,7 +95,7 @@
 }
 
 .card.reject img {
-  filter: saturate(0.25) brightness(0.55) contrast(0.9);
+  filter: saturate(0.4) brightness(0.65) contrast(0.95);
 }
 
 /* ─── Thumbnail image ────────────────────────────────────────────────── */
@@ -220,5 +220,6 @@
 @keyframes card-rotate {
   0%   { transform: rotate(0deg) scale(1); }
   40%  { transform: rotate(3deg) scale(0.96); }
+  75%  { transform: rotate(-0.5deg) scale(1.01); }
   100% { transform: rotate(0deg) scale(1); }
 }

@@ -89,7 +89,8 @@
   bottom: 0;
   width: var(--sidebar-width);
   background: var(--bg-elevated);
-  border-left: 1px solid var(--hairline);
+  border-left: 1px solid var(--hairline-stronger);
+  box-shadow: -20px 0 40px rgba(0, 0, 0, 0.4);
   transform: translateX(100%);
   transition: transform var(--transition-medium);
   z-index: 90;

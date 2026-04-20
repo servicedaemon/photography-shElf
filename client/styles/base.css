@@ -3,7 +3,7 @@
 
 /* ─── Fonts ──────────────────────────────────────────────────────────── */
 
-@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght,SOFT@9..144,200..900,0..100&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght,SOFT@9..144,200..900,0..100&family=JetBrains+Mono:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap');
 
 /* ─── Tokens ─────────────────────────────────────────────────────────── */
 
@@ -26,9 +26,9 @@
   --ink-whisper: #2a2a32;   /* hairlines, disabled */
 
   /* Status — photographic */
-  --blue: #8ca0b8;          /* keep — cool steel */
+  --blue: #a8bccc;          /* keep — cool steel (WCAG AA on dark) */
   --blue-deep: #2a3a4e;     /* keep bg */
-  --blue-whisper: rgba(140, 160, 184, 0.12);
+  --blue-whisper: rgba(168, 188, 204, 0.12);
   --rose: #c08484;          /* reject — muted rose */
   --rose-deep: #3e1f1f;
   --rose-whisper: rgba(192, 132, 132, 0.12);
@@ -107,13 +107,13 @@ body {
   background-attachment: fixed;
 }
 
-/* Scanline grain texture overlay — extremely subtle */
+/* Scanline grain texture overlay — extremely subtle, sits below interactive chrome */
 body::before {
   content: '';
   position: fixed;
   inset: 0;
   pointer-events: none;
-  z-index: 999;
+  z-index: 50;
   opacity: 0.025;
   background-image: repeating-linear-gradient(
     0deg,
@@ -313,6 +313,20 @@ h1, h2, h3 {
 ::selection {
   background: var(--amber-deep);
   color: var(--ink);
+}
+
+/* ─── Focus rings (keyboard) ─────────────────────────────────────────── */
+
+:focus { outline: none; }
+
+:focus-visible {
+  outline: 2px solid var(--amber);
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+
+.card:focus-visible {
+  outline-offset: 4px;
 }
 
 /* ─── Scrollbar ──────────────────────────────────────────────────────── */
