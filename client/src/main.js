@@ -209,8 +209,13 @@ async function scanForCamera() {
 
 async function selectDirectory() {
   try {
-    const res = await fetch('/api/pick-folder', { method: 'POST' });
-    const data = await res.json();
+    let data;
+    if (window.shelf && window.shelf.pickFolder) {
+      data = await window.shelf.pickFolder();
+    } else {
+      const res = await fetch('/api/pick-folder', { method: 'POST' });
+      data = await res.json();
+    }
 
     if (!data.path) return; // User cancelled
 
@@ -450,6 +455,10 @@ async function handleSort() {
     const keepsPath = sortDir ? `${sortDir}/Keeps - ${dateStr} - ${safeName}` : null;
 
     showSortBridge(data.moved, keepsPath);
+    if (window.shelf && window.shelf.showNotification) {
+      const total = Object.values(data.moved).reduce((a, b) => a + b, 0);
+      window.shelf.showNotification('Sort complete', `Sorted ${total} images`);
+    }
   } catch (e) {
     showToast('Sort failed: ' + e.message, 'error');
   }
@@ -477,6 +486,7 @@ async function handleConvert() {
   overlay.classList.add('active');
 
   try {
+    if (window.shelf && window.shelf.setProgress) window.shelf.setProgress(2);
     const res = await fetch('/api/convert', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -500,12 +510,17 @@ async function handleConvert() {
     if (data.skipped) parts.push(`${data.skipped} skipped`);
     if (data.errors.length) parts.push(`${data.errors.length} errors`);
     showToast(`DNG conversion done: ${parts.join(', ')}`, data.errors.length ? 'error' : 'success');
+    if (window.shelf && window.shelf.setProgress) window.shelf.setProgress(-1);
+    if (window.shelf && window.shelf.showNotification) {
+      window.shelf.showNotification('DNG conversion complete', `Converted ${data.converted} images`);
+    }
 
     // Refresh to show new DNG files
     bus.emit(EVENTS.REFRESH);
     bus.emit(EVENTS.CONVERT_COMPLETE);
   } catch (e) {
     overlay.classList.remove('active');
+    if (window.shelf && window.shelf.setProgress) window.shelf.setProgress(-1);
     showToast('Conversion failed: ' + e.message, 'error');
   }
 }
@@ -571,6 +586,9 @@ async function handlePromoteFavorites() {
     const data = await res.json();
 
     showToast(`Promoted ${data.moved} image${data.moved !== 1 ? 's' : ''} to Favorites`, 'success');
+    if (window.shelf && window.shelf.showNotification) {
+      window.shelf.showNotification('Promoted to Favorites', `Moved ${data.moved} heroes`);
+    }
 
     // Show bridge card
     showPromoteBridge(data.moved, folderName);
