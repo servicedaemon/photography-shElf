@@ -100,6 +100,7 @@ function renderHeader() {
         <input type="range" min="150" max="500" value="280" id="thumb-slider">
       </div>
       ${hasMarks ? '<button class="btn btn-muted" id="btn-deselect-all">Deselect All</button>' : ''}
+      <button class="btn btn-muted" id="btn-exit-shoot" title="Close this shoot and return to the welcome screen">Exit Shoot</button>
       <button class="btn btn-muted" id="btn-scan-camera">Scan Card</button>
       <button class="btn btn-gold" id="btn-select-dir">New Shoot</button>
     `;
@@ -130,6 +131,15 @@ function bindHeaderButtons() {
     await deselectAll();
     renderHeader();
   });
+  document.getElementById('btn-exit-shoot')?.addEventListener('click', exitShoot);
+}
+
+function exitShoot() {
+  mode = 'idle';
+  source = '';
+  bus.emit(EVENTS.MODE_CHANGED, { newMode: 'idle', newSource: '', newFolder: '', stage: 'CULL' });
+  renderHeader();
+  showEmptyState();
 }
 
 // --- Empty state ---
