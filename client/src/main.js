@@ -14,6 +14,7 @@ import { createElf } from './elf.js';
 import { setThumbSize } from './theme.js';
 import { initMarkQueue } from './mark-queue.js';
 import { initIngest, pushRecentShoot, getRecentShoots } from './ingest.js';
+import { initHints } from './hints.js';
 
 // App state
 let mode = 'idle'; // idle, loading, card
@@ -31,6 +32,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initActions();
   initUndo();
   initStage();
+  initHints();
 
   initIngest((folderPath) => {
     loadSource(folderPath);
