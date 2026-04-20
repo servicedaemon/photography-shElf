@@ -20,9 +20,12 @@ async function createWindow() {
     // In dev, the existing npm run dev starts Express on env PORT (pm assigns 23714)
     serverPort = parseInt(process.env.SHELF_SERVER_PORT || '23714');
   } else {
-    // In packaged mode, pick a free port and spawn the server
+    // In packaged mode, pick a free port and spawn the server.
+    // The dist/ directory is asar-unpacked so Express's static middleware
+    // can read index.html + assets from the real filesystem.
     serverPort = await getPort();
-    const distPath = path.join(app.getAppPath(), 'dist');
+    const asarDistPath = path.join(app.getAppPath(), 'dist');
+    const distPath = asarDistPath.replace(/app\.asar(?!\.unpacked)/, 'app.asar.unpacked');
     await startServer({ port: serverPort, distPath });
   }
 

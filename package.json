@@ -39,11 +39,9 @@
     "productName": "Shelf",
     "asar": true,
     "asarUnpack": [
-      "node_modules/sharp/**",
-      "node_modules/@img/**",
-      "node_modules/exiftool-vendored/**",
-      "node_modules/exiftool-vendored.pl/**",
-      "node_modules/exiftool-vendored.exe/**"
+      "node_modules/**/*",
+      "server/**/*",
+      "dist/**/*"
     ],
     "files": [
       "electron/**/*",
