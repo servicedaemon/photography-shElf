@@ -137,14 +137,31 @@ function showEmptyState() {
   empty.innerHTML = `
     <div id="empty-elf"></div>
     <h2>Welcome to Shelf</h2>
-    <p>Scan for a connected camera card, or select a directory of shoots.</p>
+    <p>Scan a camera card, pick a folder, or drop one in.</p>
     <div class="empty-actions">
-      <button class="btn btn-primary" id="empty-scan-camera">Scan for Camera</button>
-      <button class="btn btn-gold" id="empty-select-dir">Select Directory</button>
+      <button class="btn btn-primary" id="empty-scan-camera">Scan Card</button>
+      <button class="btn btn-gold" id="empty-select-dir">New Shoot</button>
     </div>
+    <div id="recent-shoots"></div>
   `;
 
   createElf(document.getElementById('empty-elf'), 'idle', 8);
+
+  getRecentShoots().then(list => {
+    const el = document.getElementById('recent-shoots');
+    if (!el || list.length === 0) return;
+    el.innerHTML = `
+      <h3 style="margin-top:32px;color:var(--tan);font-size:14px">Recent shoots</h3>
+      ${list.map(p => `
+        <button class="folder-btn recent-btn" data-path="${p}" style="max-width:600px;margin:4px auto;display:block;text-align:left">
+          ${p.split('/').slice(-2).join('/')}
+        </button>
+      `).join('')}
+    `;
+    el.querySelectorAll('.recent-btn').forEach(btn => {
+      btn.addEventListener('click', () => loadSource(btn.dataset.path));
+    });
+  });
 
   document.getElementById('empty-scan-camera')?.addEventListener('click', scanForCamera);
   document.getElementById('empty-select-dir')?.addEventListener('click', selectDirectory);
@@ -204,9 +221,30 @@ async function selectDirectory() {
       return;
     }
 
-    // If just images at root, no shoots or subfolders, load directly
-    if (listing.shoots.length === 0 && listing.otherFolders.length === 0 && listing.rootImageCount > 0) {
+    // Smart auto-load: if only one obvious destination, skip the picker
+    const shoots = listing.shoots || [];
+    const other = listing.otherFolders || [];
+
+    // Case 1: just loose images at root
+    if (shoots.length === 0 && other.length === 0 && listing.rootImageCount > 0) {
       await loadSource(listing.path);
+      return;
+    }
+
+    // Case 2: single shoot with a single non-empty subfolder
+    if (shoots.length === 1 && other.length === 0 && listing.rootImageCount === 0) {
+      const shoot = shoots[0];
+      const nonEmptyFolders = Object.entries(shoot.folders || {})
+        .filter(([, f]) => f.count > 0);
+      if (nonEmptyFolders.length === 1) {
+        await loadSource(nonEmptyFolders[0][1].path);
+        return;
+      }
+    }
+
+    // Case 3: single plain folder with images
+    if (shoots.length === 0 && other.length === 1) {
+      await loadSource(other[0].path);
       return;
     }
 
