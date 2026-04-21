@@ -22,6 +22,20 @@ let source = '';
 let headerElfHandle = null;
 let elfResetTimer = null;
 
+// Human-readable label for the stage pill's hover tooltip.
+function stageTooltip(stage) {
+  switch (stage) {
+    case 'CULL':
+      return 'CULL — first pass. Decide keep / favorite / reject on every photo. Press P, F, X, U to mark.';
+    case 'HEROES':
+      return 'HEROES — second pass. Pick the best shots from your keeps with F, then Promote to Favorites.';
+    case 'FINAL':
+      return 'FINAL — your favorite shots, ready for editing. Convert to DNG and open in Lightroom.';
+    default:
+      return stage;
+  }
+}
+
 // Briefly switch the header elf's pose, then return to its baseline.
 function flashElfPose(pose, duration = 1400, baseline = 'peeking') {
   if (!headerElfHandle) return;
@@ -110,7 +124,7 @@ function renderHeader() {
     header.innerHTML = `
       <div class="elf-corner" id="header-elf"></div>
       <h1>Shelf</h1>
-      <span class="stage-pill stage-${stage.toLowerCase()}">${stage}</span>
+      <span class="stage-pill stage-${stage.toLowerCase()}" title="${stageTooltip(stage)}">${stage}</span>
       <span class="stat stat-keep">${keeps} keep</span>
       <span class="stat stat-favorite">${favs} fav</span>
       <span class="stat stat-reject">${rejects} reject</span>
@@ -448,6 +462,26 @@ async function handleSort() {
   const favs = images.filter((i) => (i.status || 'unmarked') === 'favorite').length;
   const rejects = images.filter((i) => (i.status || 'unmarked') === 'reject').length;
   const unsorted = images.length - keeps - favs - rejects;
+  const markedTotal = keeps + favs + rejects;
+
+  // First, see if we're inside an existing shoot (source is a sub-folder
+  // like keeps/, rejects/, unsorted/). If so, offer to sort in place —
+  // move marked files into the shoot's existing sibling folders instead
+  // of creating a brand new dated bundle.
+  let shootContext = null;
+  try {
+    const ctxRes = await fetch(`/api/shoot-context?source=${encodeURIComponent(source)}`);
+    if (ctxRes.ok) {
+      const ctx = await ctxRes.json();
+      if (ctx.insideShoot) shootContext = ctx;
+    }
+  } catch {
+    // Fall through to new-bundle flow.
+  }
+
+  if (shootContext) {
+    return handleSortInPlace(shootContext, { keeps, favs, rejects, unsorted, markedTotal });
+  }
 
   // Name input modal
   const name = await showInputModal(
@@ -490,6 +524,64 @@ async function handleSort() {
       const total = Object.values(data.moved).reduce((a, b) => a + b, 0);
       window.shelf.showNotification('Sort complete', `Sorted ${total} images`);
     }
+  } catch (e) {
+    showToast('Sort failed: ' + e.message, 'error');
+  }
+}
+
+// Sort "in place" — the source folder is a sub-folder of an existing shoot.
+// Move marked files into the shoot's existing sibling folders instead of
+// creating a brand-new dated bundle in sortDir.
+async function handleSortInPlace(ctx, counts) {
+  const { keeps, favs, rejects, markedTotal } = counts;
+  if (markedTotal === 0) {
+    showToast('Nothing marked. Press P / F / X to mark photos first.', 'error');
+    return;
+  }
+
+  const parts = [];
+  if (keeps) parts.push(`${keeps} keeps`);
+  if (favs) parts.push(`${favs} favorites`);
+  if (rejects) parts.push(`${rejects} rejects`);
+
+  const confirmed = await showConfirmModal(
+    `Sort into "${ctx.shootName}"`,
+    `Move ${markedTotal} marked image${markedTotal !== 1 ? 's' : ''} into this shoot's existing folders?\n\n${parts.join('\n')}\n\nUnmarked photos stay in place.`,
+  );
+  if (!confirmed) return;
+
+  try {
+    const res = await fetch('/api/sort-in-place', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ source }),
+    });
+    const data = await res.json();
+
+    if (!res.ok) {
+      showToast(data.error || 'Sort failed', 'error');
+      return;
+    }
+
+    const moved = data.moved || {};
+    const totalMoved = (moved.keep || 0) + (moved.favorite || 0) + (moved.reject || 0) + (moved.unsorted || 0);
+    const resultParts = [];
+    if (moved.keep) resultParts.push(`${moved.keep} → keeps`);
+    if (moved.favorite) resultParts.push(`${moved.favorite} → Favorites`);
+    if (moved.reject) resultParts.push(`${moved.reject} → rejects`);
+    if (moved.unsorted) resultParts.push(`${moved.unsorted} → unsorted`);
+
+    showToast(`Sorted ${totalMoved} into "${ctx.shootName}": ${resultParts.join(', ')}`, 'success');
+
+    if (data.errors && data.errors.length) {
+      showToast(`${data.errors.length} files had errors`, 'error');
+    }
+
+    if (window.shelf && window.shelf.showNotification) {
+      window.shelf.showNotification('Sorted in place', `${totalMoved} images into ${ctx.shootName}`);
+    }
+
+    bus.emit(EVENTS.REFRESH);
   } catch (e) {
     showToast('Sort failed: ' + e.message, 'error');
   }

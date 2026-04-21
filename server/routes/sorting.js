@@ -387,3 +387,151 @@ sortingRoutes.post('/move-to-shoot', async (req, res) => {
 
   res.json({ moved, destFolder, unsortedDir, errors: errors.length > 0 ? errors : [] });
 });
+
+// GET /api/shoot-context?source=/path
+// Detects whether the source is inside an existing shoot (its parent folder
+// has standard sibling sub-folders like keeps/, rejects/, unsorted/, Favorites/).
+// If yes, returns the parent shoot's path + existing sibling folders —
+// used by the client to offer "sort in place" instead of creating a new bundle.
+sortingRoutes.get('/shoot-context', (req, res) => {
+  const source = req.query.source;
+  if (!source) return res.status(400).json({ error: 'source required' });
+  const sourcePath = path.resolve(source);
+  if (!fs.existsSync(sourcePath)) return res.status(404).json({ error: 'Not found' });
+
+  const base = path.basename(sourcePath).toLowerCase();
+  const SUBS = ['keeps', 'rejects', 'unsorted', 'favorites', 'edited'];
+
+  // If source is itself a sub-folder like keeps/, parent is the shoot root
+  if (!SUBS.includes(base)) {
+    return res.json({ insideShoot: false });
+  }
+
+  const shootRoot = path.dirname(sourcePath);
+  // Confirm parent has at least one other sort-sibling
+  let entries;
+  try {
+    entries = fs.readdirSync(shootRoot, { withFileTypes: true });
+  } catch {
+    return res.json({ insideShoot: false });
+  }
+
+  const siblings = {};
+  for (const e of entries) {
+    if (!e.isDirectory()) continue;
+    const lc = e.name.toLowerCase();
+    if (SUBS.includes(lc)) {
+      siblings[lc] = path.join(shootRoot, e.name);
+    }
+  }
+
+  if (Object.keys(siblings).length < 2) {
+    return res.json({ insideShoot: false });
+  }
+
+  res.json({
+    insideShoot: true,
+    shootRoot,
+    shootName: path.basename(shootRoot),
+    siblings, // { keeps: path, rejects: path, unsorted: path, favorites: path, ... }
+  });
+});
+
+// POST /api/sort-in-place
+// Body: { source }
+// Uses the marking state on `source` to move files into the shoot's existing
+// keeps/, rejects/, Favorites/, unsorted/ sibling folders. Does NOT create a
+// new dated bundle. Existing folder-name casing is preserved; missing folders
+// are created with canonical casing (Favorites uppercase, others lowercase).
+sortingRoutes.post('/sort-in-place', (req, res) => {
+  const { source } = req.body || {};
+  if (!source) return res.status(400).json({ error: 'source required' });
+  const sourcePath = path.resolve(source);
+  if (!fs.existsSync(sourcePath) || !fs.statSync(sourcePath).isDirectory()) {
+    return res.status(404).json({ error: 'Source not found' });
+  }
+
+  const base = path.basename(sourcePath).toLowerCase();
+  const SUBS = ['keeps', 'rejects', 'unsorted', 'favorites', 'edited'];
+  if (!SUBS.includes(base)) {
+    return res.status(400).json({ error: 'Source is not a shoot sub-folder' });
+  }
+
+  const shootRoot = path.dirname(sourcePath);
+
+  // Figure out existing sibling folders (preserve casing), compute targets
+  function findOrMakeSub(lcName, preferredCase) {
+    const entries = fs.readdirSync(shootRoot, { withFileTypes: true });
+    for (const e of entries) {
+      if (e.isDirectory() && e.name.toLowerCase() === lcName) {
+        return path.join(shootRoot, e.name);
+      }
+    }
+    const p = path.join(shootRoot, preferredCase);
+    fs.mkdirSync(p, { recursive: true });
+    return p;
+  }
+
+  const targets = {
+    keep: findOrMakeSub('keeps', 'keeps'),
+    favorite: findOrMakeSub('favorites', 'Favorites'),
+    reject: findOrMakeSub('rejects', 'rejects'),
+    unsorted: findOrMakeSub('unsorted', 'unsorted'),
+  };
+
+  const state = getState(sourcePath);
+  let files;
+  try {
+    files = fs.readdirSync(sourcePath)
+      .filter(f => VALID_FILENAME.test(f))
+      .sort();
+  } catch {
+    return res.status(500).json({ error: 'Cannot read source' });
+  }
+
+  const moved = { keep: 0, favorite: 0, reject: 0, unsorted: 0 };
+  const errors = [];
+
+  for (const filename of files) {
+    const src = path.join(sourcePath, filename);
+    if (!fs.existsSync(src)) continue;
+
+    const status = state[filename] || 'unmarked';
+
+    // If unmarked, skip UNLESS the source itself is not the unsorted folder
+    // (e.g., sort-in-place from keeps/ — an unmarked file there stays).
+    // If we're currently in the unsorted folder, unmarked files stay too.
+    // So: only MOVE files with a non-unmarked status. Unmarked stays put.
+    if (status === 'unmarked') continue;
+
+    // If target is the same folder we're in, that's a no-op
+    const targetKey = status === 'keep' ? 'keep'
+                    : status === 'favorite' ? 'favorite'
+                    : status === 'reject' ? 'reject'
+                    : 'unsorted';
+    const targetDir = targets[targetKey];
+    if (path.resolve(targetDir) === sourcePath) continue;
+
+    const dest = path.join(targetDir, filename);
+    try {
+      if (fs.existsSync(dest)) {
+        errors.push({ filename, error: 'destination already has a file with this name' });
+        continue;
+      }
+      fs.copyFileSync(src, dest);
+      fs.unlinkSync(src);
+      delete state[filename];
+      moved[targetKey]++;
+    } catch (e) {
+      errors.push({ filename, error: e.message });
+    }
+  }
+
+  setState(sourcePath, state);
+  res.json({
+    moved,
+    shootRoot,
+    shootName: path.basename(shootRoot),
+    errors: errors.length > 0 ? errors : [],
+  });
+});
