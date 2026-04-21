@@ -15,6 +15,7 @@ import { setThumbSize } from './theme.js';
 import { initMarkQueue } from './mark-queue.js';
 import { initIngest, pushRecentShoot, getRecentShoots } from './ingest.js';
 import { initHints } from './hints.js';
+import { initShootNav } from './shoot-nav.js';
 
 // App state
 let mode = 'idle'; // idle, loading, card
@@ -63,6 +64,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initIngest((folderPath) => {
     loadSource(folderPath);
   });
+  initShootNav((folderPath) => loadSource(folderPath));
 
   renderHeader();
   showEmptyState();

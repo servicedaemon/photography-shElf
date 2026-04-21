@@ -1,6 +1,6 @@
 // IPC handlers wired from the preload bridge.
 
-import { ipcMain, dialog, Notification } from 'electron';
+import { ipcMain, dialog, Notification, shell } from 'electron';
 
 export function registerIpc(getMainWindow) {
   ipcMain.handle('shelf:pick-folder', async () => {
@@ -30,5 +30,22 @@ export function registerIpc(getMainWindow) {
     const win = getMainWindow();
     if (win) win.setProgressBar(fraction);
     return { ok: true };
+  });
+
+  // Move files to the system trash. Safer than hard-deleting — the user
+  // can recover from Trash/Recycle Bin if they regret it.
+  ipcMain.handle('shelf:trash-files', async (_evt, paths) => {
+    if (!Array.isArray(paths)) return { ok: false, error: 'paths must be an array' };
+    let trashed = 0;
+    const errors = [];
+    for (const p of paths) {
+      try {
+        await shell.trashItem(p);
+        trashed++;
+      } catch (e) {
+        errors.push({ path: p, error: e.message });
+      }
+    }
+    return { ok: true, trashed, errors };
   });
 }

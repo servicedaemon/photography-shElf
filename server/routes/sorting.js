@@ -417,11 +417,19 @@ sortingRoutes.get('/shoot-context', (req, res) => {
   }
 
   const siblings = {};
+  function countImages(dirPath) {
+    try {
+      return fs.readdirSync(dirPath).filter((f) => VALID_FILENAME.test(f)).length;
+    } catch {
+      return 0;
+    }
+  }
   for (const e of entries) {
     if (!e.isDirectory()) continue;
     const lc = e.name.toLowerCase();
     if (SUBS.includes(lc)) {
-      siblings[lc] = path.join(shootRoot, e.name);
+      const p = path.join(shootRoot, e.name);
+      siblings[lc] = { path: p, count: countImages(p) };
     }
   }
 
@@ -433,7 +441,8 @@ sortingRoutes.get('/shoot-context', (req, res) => {
     insideShoot: true,
     shootRoot,
     shootName: path.basename(shootRoot),
-    siblings, // { keeps: path, rejects: path, unsorted: path, favorites: path, ... }
+    currentSub: base,
+    siblings, // { keeps: {path, count}, rejects: {path, count}, ... }
   });
 });
 
@@ -534,4 +543,24 @@ sortingRoutes.post('/sort-in-place', (req, res) => {
     shootName: path.basename(shootRoot),
     errors: errors.length > 0 ? errors : [],
   });
+});
+
+// GET /api/list-folder-files?path=/path
+// Returns absolute filesystem paths of all image files in a folder.
+// Used by the client to pass paths to Electron's trash IPC for "Empty Rejects".
+sortingRoutes.get('/list-folder-files', (req, res) => {
+  const folder = req.query.path;
+  if (!folder) return res.status(400).json({ error: 'path required' });
+  const resolved = path.resolve(folder);
+  if (!fs.existsSync(resolved) || !fs.statSync(resolved).isDirectory()) {
+    return res.status(404).json({ error: 'Not found' });
+  }
+  try {
+    const files = fs.readdirSync(resolved)
+      .filter((f) => VALID_FILENAME.test(f))
+      .map((f) => path.join(resolved, f));
+    res.json({ files });
+  } catch {
+    res.json({ files: [] });
+  }
 });
