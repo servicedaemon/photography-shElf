@@ -47,9 +47,16 @@ function openLightbox(index) {
 }
 
 function closeLightbox() {
+  if (!lightboxEl.classList.contains('active')) return;
   isOpen = false;
   isZoomed = false;
-  lightboxEl.classList.remove('active');
+  // Play exit animation before removing 'active' (which display:none-s it).
+  lightboxEl.classList.add('closing');
+  const onEnd = () => {
+    lightboxEl.classList.remove('active', 'closing');
+    lightboxEl.removeEventListener('animationend', onEnd);
+  };
+  lightboxEl.addEventListener('animationend', onEnd);
 }
 
 export function toggleLightbox() {
@@ -142,12 +149,21 @@ function renderLightbox() {
     ${filmstripHtml}
   `;
 
-  // Progressive load: swap to full preview
+  // Progressive load: crossfade from thumb to full preview
   const lbImg = document.getElementById('lb-img');
   const hiRes = new Image();
   hiRes.onload = () => {
     if (isOpen && currentIndex === images.indexOf(img)) {
-      lbImg.src = hiRes.src;
+      // Fade out, swap src, fade in — smooth instead of a pop
+      lbImg.style.transition = 'opacity 0.22s ease';
+      lbImg.style.opacity = '0';
+      setTimeout(() => {
+        lbImg.src = hiRes.src;
+        // Reflow then fade back in
+        requestAnimationFrame(() => {
+          lbImg.style.opacity = '1';
+        });
+      }, 120);
     }
   };
   hiRes.src = pUrl;

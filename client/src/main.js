@@ -19,6 +19,18 @@ import { initHints } from './hints.js';
 // App state
 let mode = 'idle'; // idle, loading, card
 let source = '';
+let headerElfHandle = null;
+let elfResetTimer = null;
+
+// Briefly switch the header elf's pose, then return to its baseline.
+function flashElfPose(pose, duration = 1400, baseline = 'peeking') {
+  if (!headerElfHandle) return;
+  headerElfHandle.setPose(pose);
+  if (elfResetTimer) clearTimeout(elfResetTimer);
+  elfResetTimer = setTimeout(() => {
+    headerElfHandle?.setPose(baseline);
+  }, duration);
+}
 
 // Init all modules
 document.addEventListener('DOMContentLoaded', () => {
@@ -50,8 +62,16 @@ document.addEventListener('DOMContentLoaded', () => {
   bus.on(EVENTS.REFRESH, refresh);
 
   // Re-render header stats when marks change
-  bus.on(EVENTS.IMAGE_MARKED, () => renderHeader());
-  bus.on(EVENTS.BATCH_MARKED, () => renderHeader());
+  bus.on(EVENTS.IMAGE_MARKED, ({ status }) => {
+    renderHeader();
+    // Reactive header elf: favorite sparks joy, reject a confused moment
+    if (status === 'favorite') flashElfPose('sparkle', 900);
+    else if (status === 'reject') flashElfPose('confused', 700);
+  });
+  bus.on(EVENTS.BATCH_MARKED, ({ status }) => {
+    renderHeader();
+    if (status === 'favorite') flashElfPose('sparkle', 1100);
+  });
   bus.on(EVENTS.STAGE_CHANGED, () => renderHeader());
 
   // Electron menu → renderer bridge for "Open Folder" / "Open Recent"
@@ -107,10 +127,10 @@ function renderHeader() {
     `;
   }
 
-  // Tiny peeking elf in header
+  // Tiny reactive elf in header — reacts to events during the cull
   const elfContainer = document.getElementById('header-elf');
   if (elfContainer) {
-    createElf(elfContainer, 'peeking', 3);
+    headerElfHandle = createElf(elfContainer, 'peeking', 3);
   }
 
   // Bind buttons
@@ -486,15 +506,23 @@ async function handleConvert() {
 
   if (keepOriginals === null) return; // cancelled
 
-  // Show progress modal
+  // Show progress modal with an active elf (built via DOM methods, no innerHTML)
   const overlay = document.getElementById('modal-overlay');
-  overlay.innerHTML = `
-    <div class="modal">
-      <h2>Converting to DNG...</h2>
-      <p>This may take a moment. Please wait.</p>
-    </div>
-  `;
+  while (overlay.firstChild) overlay.removeChild(overlay.firstChild);
+  const mDiv = document.createElement('div');
+  mDiv.className = 'modal modal-narrow';
+  mDiv.style.textAlign = 'center';
+  const elfHost = document.createElement('div');
+  elfHost.id = 'convert-elf';
+  elfHost.style.cssText = 'display:flex;justify-content:center;margin-bottom:14px';
+  const h2 = document.createElement('h2');
+  h2.textContent = 'Converting to DNG';
+  const p = document.createElement('p');
+  p.textContent = 'Wrapping your raws for Lightroom. One moment.';
+  mDiv.append(elfHost, h2, p);
+  overlay.appendChild(mDiv);
   overlay.classList.add('active');
+  createElf(elfHost, 'scribbling', 6);
 
   try {
     if (window.shelf && window.shelf.setProgress) window.shelf.setProgress(2);
@@ -715,7 +743,8 @@ function showSortBridge(moved, keepsPath) {
   if (moved.unsorted) parts.push(`${moved.unsorted} unsorted`);
 
   overlay.innerHTML = `
-    <div class="modal">
+    <div class="modal" style="text-align:center">
+      <div class="bridge-elf-host" style="display:flex;justify-content:center;margin-bottom:14px"></div>
       <h2>Sorted ${total} images</h2>
       <p>${parts.join(' · ')}</p>
       <div class="modal-buttons">
@@ -726,6 +755,8 @@ function showSortBridge(moved, keepsPath) {
     </div>
   `;
   overlay.classList.add('active');
+  const sortElf = overlay.querySelector('.bridge-elf-host');
+  if (sortElf) createElf(sortElf, 'sparkle', 6);
 
   const close = () => overlay.classList.remove('active');
 
@@ -753,7 +784,8 @@ function showSortBridge(moved, keepsPath) {
 function showPromoteBridge(count, folderName) {
   const overlay = document.getElementById('modal-overlay');
   overlay.innerHTML = `
-    <div class="modal">
+    <div class="modal" style="text-align:center">
+      <div class="bridge-elf-host" style="display:flex;justify-content:center;margin-bottom:14px"></div>
       <h2>Promoted ${count} to Favorites</h2>
       <p>Your heroes are saved in the Favorites subfolder.</p>
       <div class="modal-buttons">
@@ -764,6 +796,8 @@ function showPromoteBridge(count, folderName) {
     </div>
   `;
   overlay.classList.add('active');
+  const promoteElf = overlay.querySelector('.bridge-elf-host');
+  if (promoteElf) createElf(promoteElf, 'waving', 6);
 
   const close = () => overlay.classList.remove('active');
 

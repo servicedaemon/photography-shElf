@@ -1,0 +1,103 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" shape-rendering="crispEdges">
+  <!-- Shelf app icon: pixel elf peeking over a camera with an amber darkroom lens.
+       32x32 logical pixel grid. 4 color palette:
+       - #d4a843 gold (ears)
+       - #3d6a9e blue (elf face)
+       - #0c0c0c deep black (lens void, eyes)
+       - #1a1a20 camera body
+       - #e0a82e amber (safelight glow / lens accent)
+       - #c45050 rec dot
+  -->
+
+  <!-- Row 0-5: Elf head peeking above the camera (rows 0-5 of 32) -->
+  <!-- The elf sits slightly left of center, as if composing a shot -->
+
+  <!-- Row 0: ears -->
+  <rect x="8"  y="0" width="2" height="2" fill="#d4a843"/>
+  <rect x="20" y="0" width="2" height="2" fill="#d4a843"/>
+
+  <!-- Row 1: ears + face top row -->
+  <rect x="8"  y="2" width="2" height="2" fill="#d4a843"/>
+  <rect x="10" y="2" width="2" height="2" fill="#3d6a9e"/>
+  <rect x="12" y="2" width="2" height="2" fill="#3d6a9e"/>
+  <rect x="14" y="2" width="2" height="2" fill="#3d6a9e"/>
+  <rect x="16" y="2" width="2" height="2" fill="#3d6a9e"/>
+  <rect x="18" y="2" width="2" height="2" fill="#3d6a9e"/>
+  <rect x="20" y="2" width="2" height="2" fill="#d4a843"/>
+
+  <!-- Row 2: face with eyes -->
+  <rect x="10" y="4" width="2" height="2" fill="#3d6a9e"/>
+  <rect x="12" y="4" width="2" height="2" fill="#0c0c0c"/>
+  <rect x="14" y="4" width="2" height="2" fill="#3d6a9e"/>
+  <rect x="16" y="4" width="2" height="2" fill="#0c0c0c"/>
+  <rect x="18" y="4" width="2" height="2" fill="#3d6a9e"/>
+  <rect x="20" y="4" width="2" height="2" fill="#3d6a9e"/>
+
+  <!-- Row 3: chin/bottom of face -->
+  <rect x="10" y="6" width="2" height="2" fill="#3d6a9e"/>
+  <rect x="12" y="6" width="2" height="2" fill="#3d6a9e"/>
+  <rect x="14" y="6" width="2" height="2" fill="#3d6a9e"/>
+  <rect x="16" y="6" width="2" height="2" fill="#3d6a9e"/>
+  <rect x="18" y="6" width="2" height="2" fill="#3d6a9e"/>
+
+  <!-- Camera body: rows 8-26 -->
+  <!-- Top plate with viewfinder hump and shutter button + rec light -->
+
+  <!-- Viewfinder hump (prism top) -->
+  <rect x="10" y="8"  width="12" height="2" fill="#1a1a20"/>
+
+  <!-- Shutter button (amber) -->
+  <rect x="4"  y="8"  width="2" height="2" fill="#e0a82e"/>
+  <rect x="4"  y="10" width="2" height="2" fill="#1a1a20"/>
+
+  <!-- Rec dot (red) on top right of camera -->
+  <rect x="26" y="10" width="2" height="2" fill="#c45050"/>
+
+  <!-- Main camera body top edge -->
+  <rect x="2"  y="10" width="2"  height="2" fill="#1a1a20"/>
+  <rect x="6"  y="10" width="4"  height="2" fill="#1a1a20"/>
+  <rect x="22" y="10" width="4"  height="2" fill="#1a1a20"/>
+  <rect x="28" y="10" width="2"  height="2" fill="#1a1a20"/>
+
+  <!-- Main camera body (solid dark block with cut-out for lens) rows 12-24 -->
+  <rect x="2"  y="12" width="28" height="2" fill="#1a1a20"/>
+  <rect x="2"  y="14" width="6"  height="2" fill="#1a1a20"/>
+  <rect x="24" y="14" width="6"  height="2" fill="#1a1a20"/>
+  <rect x="2"  y="16" width="4"  height="2" fill="#1a1a20"/>
+  <rect x="26" y="16" width="4"  height="2" fill="#1a1a20"/>
+  <rect x="2"  y="18" width="4"  height="2" fill="#1a1a20"/>
+  <rect x="26" y="18" width="4"  height="2" fill="#1a1a20"/>
+  <rect x="2"  y="20" width="4"  height="2" fill="#1a1a20"/>
+  <rect x="26" y="20" width="4"  height="2" fill="#1a1a20"/>
+  <rect x="2"  y="22" width="6"  height="2" fill="#1a1a20"/>
+  <rect x="24" y="22" width="6"  height="2" fill="#1a1a20"/>
+  <rect x="2"  y="24" width="28" height="2" fill="#1a1a20"/>
+  <rect x="2"  y="26" width="28" height="2" fill="#1a1a20"/>
+
+  <!-- Lens: amber outer ring, deep black glass, highlight dot -->
+
+  <!-- Outer amber ring (lens housing) -->
+  <rect x="10" y="14" width="12" height="2" fill="#e0a82e"/>
+  <rect x="8"  y="16" width="2"  height="2" fill="#e0a82e"/>
+  <rect x="22" y="16" width="2"  height="2" fill="#e0a82e"/>
+  <rect x="6"  y="18" width="2"  height="2" fill="#e0a82e"/>
+  <rect x="24" y="18" width="2"  height="2" fill="#e0a82e"/>
+  <rect x="6"  y="20" width="2"  height="2" fill="#e0a82e"/>
+  <rect x="24" y="20" width="2"  height="2" fill="#e0a82e"/>
+  <rect x="8"  y="22" width="2"  height="2" fill="#e0a82e"/>
+  <rect x="22" y="22" width="2"  height="2" fill="#e0a82e"/>
+  <rect x="10" y="24" width="12" height="2" fill="#e0a82e"/>
+
+  <!-- Inner black glass -->
+  <rect x="10" y="16" width="12" height="2" fill="#0c0c0c"/>
+  <rect x="8"  y="18" width="16" height="2" fill="#0c0c0c"/>
+  <rect x="8"  y="20" width="16" height="2" fill="#0c0c0c"/>
+  <rect x="10" y="22" width="12" height="2" fill="#0c0c0c"/>
+
+  <!-- Lens glass highlight (soft amber catchlight) -->
+  <rect x="12" y="18" width="2" height="2" fill="#3d6a9e" opacity="0.7"/>
+
+  <!-- Bottom sliver of camera (grip/feet) -->
+  <rect x="4"  y="28" width="4" height="2" fill="#1a1a20"/>
+  <rect x="24" y="28" width="4" height="2" fill="#1a1a20"/>
+</svg>

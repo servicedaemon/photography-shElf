@@ -92,6 +92,12 @@ export function updateCardStatus(index, status) {
     badge.remove();
   }
 
+  // Mark-flash: tiny pop confirmation on every mark
+  card.classList.remove('mark-flash');
+  // Force reflow so the animation restarts even on rapid consecutive marks
+  void card.offsetWidth;
+  card.classList.add('mark-flash');
+
   // Apply filter visibility
   applyFilterToCard(card, index);
 }
@@ -173,8 +179,11 @@ function renderGrid() {
 
   images.forEach((img, i) => {
     const card = document.createElement('div');
-    card.className = 'card';
+    card.className = 'card card-entering';
     card.dataset.index = i;
+    // Stagger entry animation — cap at index 60 so a huge shoot doesn't
+    // take forever to finish appearing.
+    card.style.setProperty('--enter-i', Math.min(i, 60));
 
     const status = img.status || 'unmarked';
     if (status !== 'unmarked') card.classList.add(status);
