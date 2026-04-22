@@ -3,6 +3,14 @@
 All notable changes to Shelf will be documented here.
 Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [1.0.2] — 2026-04-22
+
+Hotfix for macOS install friction.
+
+### Fixed
+- **macOS "Shelf is damaged" error on first launch** — added ad-hoc codesigning in the build (`codesign --force --deep --sign -` via `afterPack` hook). macOS Sequoia was flagging the unsigned downloaded app as damaged, which blocked users from even getting to the right-click-Open bypass. Now the app has a valid ad-hoc signature, so users see the normal "unidentified developer" flow that they can click through.
+- README troubleshooting for the rare case where macOS still flags the app: `xattr -cr /Applications/Shelf.app` clears the download-quarantine attribute.
+
 ## [1.0.1] — 2026-04-22
 
 First rapid-polish release after real-world use. Everything under the hood works; this is the sweep that makes it feel right.

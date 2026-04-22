@@ -1,6 +1,6 @@
 {
   "name": "photography-shelf",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Shelf — a pixel-elf-themed photo darkroom for sorting camera raws",
   "type": "module",
   "main": "electron/main.js",
@@ -61,8 +61,10 @@
       "target": [
         "dmg"
       ],
-      "icon": "electron/icon/source.png"
+      "icon": "electron/icon/source.png",
+      "identity": null
     },
+    "afterPack": "scripts/after-pack.mjs",
     "win": {
       "target": [
         "nsis"

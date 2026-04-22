@@ -54,9 +54,9 @@ It is not a RAW developer — Lightroom (or Capture One, or Photoshop) is. It's 
 
 | Platform | File | Notes |
 |---|---|---|
-| **macOS (Apple Silicon)** | `Shelf-1.0.1-arm64.dmg` | Native for M-series Macs |
-| **macOS (Intel)** | `Shelf-1.0.1-x64.dmg` | For Intel Macs |
-| **Windows 10/11** | `Shelf-Setup-1.0.1.exe` | NSIS installer, x64 |
+| **macOS (Apple Silicon)** | `Shelf-1.0.2-arm64.dmg` | Native for M-series Macs |
+| **macOS (Intel)** | `Shelf-1.0.2-x64.dmg` | For Intel Macs |
+| **Windows 10/11** | `Shelf-Setup-1.0.2.exe` | NSIS installer, x64 |
 
 Latest release: **[GitHub Releases →](https://github.com/servicedaemon/photography-shElf/releases/latest)**
 
@@ -65,12 +65,18 @@ Latest release: **[GitHub Releases →](https://github.com/servicedaemon/photogr
 1. Download the DMG from the releases page.
 2. Double-click to mount. Drag **Shelf.app** into `/Applications`.
 3. **First launch**: right-click Shelf.app → **Open** → confirm.
-   _This is needed once because the app isn't code-signed (no Apple Developer ID). After the first approval, double-click works forever._
+   _This is needed once because the app isn't signed with an Apple Developer ID. After the first approval, double-click works forever._
 4. Optional for DNG conversion: `brew install dnglab` — only needed if you shoot CR3/CR2/ARW/NEF/RAF and want Lightroom-compatible DNGs.
+
+> **If macOS says "Shelf is damaged and can't be opened"** instead of the normal unidentified-developer warning, open Terminal and run:
+> ```bash
+> xattr -cr /Applications/Shelf.app
+> ```
+> Then double-click again. This clears macOS's download-quarantine flag that's blocking launch. (We ad-hoc codesign the app in CI specifically to avoid this, but some macOS versions are more aggressive than others.)
 
 ### Installing on Windows
 
-1. Download `Shelf-Setup-1.0.1.exe` from the releases page.
+1. Download `Shelf-Setup-1.0.2.exe` from the releases page.
 2. Double-click to run the installer. Follow the prompts.
 3. **First launch**: Windows SmartScreen will warn _"Windows protected your PC."_
    Click **More info** → **Run anyway**. _This is needed once because the app isn't code-signed. After the first approval, double-click works forever._
