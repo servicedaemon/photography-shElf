@@ -786,3 +786,34 @@
   color: var(--tan);
   letter-spacing: 0.02em;
 }
+
+/* Single-row shoot button in the picker modal */
+.shoot-picker-btn {
+  display: flex !important;
+  flex-direction: column;
+  align-items: flex-start !important;
+  gap: 4px;
+  padding: 14px 16px !important;
+  margin-bottom: 8px;
+}
+
+.shoot-picker-btn .shoot-picker-name {
+  font-family: var(--font-display);
+  font-size: 14px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--amber);
+}
+
+.shoot-picker-btn .shoot-picker-summary {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.04em;
+  color: var(--ink-dim);
+  text-transform: lowercase;
+}
+
+.shoot-picker-btn:hover .shoot-picker-summary {
+  color: var(--tan);
+}

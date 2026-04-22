@@ -219,7 +219,7 @@ function showEmptyState() {
       `).join('')}
     `;
     el.querySelectorAll('.recent-btn').forEach(btn => {
-      btn.addEventListener('click', () => loadSource(btn.dataset.path));
+      btn.addEventListener('click', () => openRecentShoot(btn.dataset.path));
     });
   });
 
@@ -320,15 +320,15 @@ async function selectDirectory() {
       return;
     }
 
-    // Case 2: single shoot with a single non-empty subfolder
+    // Case 2: single shoot — bypass picker and load the shoot's best entry,
+    // but only when that entry is a real path (not an empty shoot).
     if (shoots.length === 1 && other.length === 0 && listing.rootImageCount === 0) {
-      const shoot = shoots[0];
-      const nonEmptyFolders = Object.entries(shoot.folders || {})
-        .filter(([, f]) => f.count > 0);
-      if (nonEmptyFolders.length === 1) {
-        await loadSource(nonEmptyFolders[0][1].path);
+      const entry = bestShootEntry(shoots[0]);
+      if (entry) {
+        await loadSource(entry);
         return;
       }
+      // Fall through to picker so the user can see the empty shoot and decide
     }
 
     // Case 3: single plain folder with images
@@ -343,39 +343,102 @@ async function selectDirectory() {
   }
 }
 
+// Open a recent shoot: use /api/list-dir on the parent to resolve the
+// shoot's best populated sub-folder, so recents reliably land somewhere
+// useful instead of a stale sub-folder path that may have been sorted away.
+async function openRecentShoot(shootPath) {
+  try {
+    // Ask the server for the shoot's structure. list-dir walks a parent
+    // and returns shoot groupings — use the shoot root's parent.
+    const parent = shootPath.split(/[/\\]/).slice(0, -1).join('/');
+    const res = await fetch(`/api/list-dir?path=${encodeURIComponent(parent)}`);
+    if (!res.ok) {
+      // Fall back to loading the shoot root directly (empty-folder state ok)
+      await loadSource(shootPath);
+      return;
+    }
+    const data = await res.json();
+    // Find the matching shoot in the listing
+    const match = (data.shoots || []).find((s) => s.path === shootPath || s.name === shootPath.split(/[/\\]/).pop());
+    if (match) {
+      await loadSource(bestShootEntry(match));
+    } else {
+      await loadSource(shootPath);
+    }
+  } catch {
+    await loadSource(shootPath);
+  }
+}
+
+// Walk a shoot's sub-folders in workflow-priority order and pick the first
+// one that has images. Used by the picker, smart auto-load, and recent-shoots
+// click so the user lands on a populated folder instead of an empty root.
+//
+// Priority: unsorted first (so returning to an in-progress cull resumes
+// where the work is), then keeps, then curated piles. Matches the workflow:
+// you're usually coming back to keep culling, not to re-review keeps.
+function bestShootEntry(shoot) {
+  const folders = shoot.folders || {};
+  const order = ['unsorted', 'keeps', 'favorites', 'edited', 'rejects'];
+  for (const key of order) {
+    if (folders[key] && folders[key].count > 0) return folders[key].path;
+  }
+  if (shoot.rootCount > 0 && shoot.path) return shoot.path;
+  // Nothing populated — fall through to the shoot root itself when we have
+  // it; else to any known sub-folder path (even if empty); else null which
+  // callers will guard against.
+  if (shoot.path) return shoot.path;
+  const firstFolder = Object.values(folders).find((f) => f && f.path);
+  return firstFolder ? firstFolder.path : null;
+}
+
+// Normalize a path to its shoot root: if the basename is a known shoot
+// sub-folder (keeps, unsorted, etc.), strip it. Otherwise return as-is.
+function shootRootOf(p) {
+  if (!p) return p;
+  const trimmed = p.replace(/[/\\]+$/, '');
+  const parts = trimmed.split(/[/\\]/);
+  const base = parts[parts.length - 1].toLowerCase();
+  const SUBS = ['unsorted', 'keeps', 'rejects', 'favorites', 'edited'];
+  if (SUBS.includes(base)) {
+    parts.pop();
+    return parts.join('/') || trimmed;
+  }
+  return trimmed;
+}
+
 function showShootPicker(listing) {
   const overlay = document.getElementById('modal-overlay');
   const dirName = listing.path.split(/[/\\]/).pop() || listing.path;
 
   let html = `<div class="modal"><h2>${dirName}</h2>`;
 
-  // Shoots
+  // Shoots — one row per shoot, clicks to the shoot's best entry point.
+  // Users navigate between sub-folders (unsorted/keeps/favorites/etc.) via
+  // the in-app shoot folder navigator, so the picker surfaces the SHOOT,
+  // not its individual sub-folders.
   if (listing.shoots.length > 0) {
     for (const shoot of listing.shoots) {
       const folders = shoot.folders || {};
       const dateLabel = shoot.date ? ` <span class="shoot-date">${shoot.date}</span>` : '';
+      const targetPath = bestShootEntry(shoot);
+      if (!targetPath) continue; // empty shoot with no known folder path — skip in picker
 
-      html += `<div class="shoot-group">`;
-      html += `<div class="shoot-name">${shoot.name}${dateLabel}</div>`;
-      html += `<div class="shoot-folders">`;
-
-      const order = ['keeps', 'rejects', 'unsorted', 'edited', 'favorites'];
-      for (const key of order) {
-        if (!folders[key] || folders[key].count === 0) continue;
-        const label = key.charAt(0).toUpperCase() + key.slice(1);
-        html += `<button class="folder-btn shoot-folder-btn" data-dir="${folders[key].path}">`;
-        html += `${label} <span style="color:var(--text-muted)">${folders[key].count}</span>`;
-        html += `</button>`;
+      // Tally a summary across sub-folders so the user sees the shoot's shape
+      // without the picker visually exploding into five tiny chips.
+      const parts = [];
+      for (const key of ['unsorted', 'keeps', 'favorites', 'rejects', 'edited']) {
+        if (folders[key] && folders[key].count > 0) {
+          parts.push(`${folders[key].count} ${key}`);
+        }
       }
+      if (shoot.rootCount > 0) parts.push(`${shoot.rootCount} loose`);
+      const summary = parts.length ? parts.join(' · ') : 'empty';
 
-      // Loose images at shoot root
-      if (shoot.rootCount > 0) {
-        html += `<button class="folder-btn shoot-folder-btn" data-dir="${shoot.path}">`;
-        html += `All <span style="color:var(--text-muted)">${shoot.rootCount}</span>`;
-        html += `</button>`;
-      }
-
-      html += `</div></div>`;
+      html += `<button class="folder-btn shoot-picker-btn" data-dir="${targetPath}">`;
+      html += `<span class="shoot-picker-name">${shoot.name}${dateLabel}</span>`;
+      html += `<span class="shoot-picker-summary">${summary}</span>`;
+      html += `</button>`;
     }
   }
 
@@ -470,7 +533,10 @@ async function loadSource(dir) {
     bus.emit(EVENTS.MODE_CHANGED, { newMode: 'card', newSource: source, newFolder: '', stage });
     setGridData(images, source, '', 'card');
     renderHeader();
-    pushRecentShoot(source).catch(() => {});
+    // Store the shoot ROOT, not the specific sub-folder. When the user
+    // later clicks a recent shoot, the picker logic resolves to the best
+    // populated sub-folder automatically.
+    pushRecentShoot(shootRootOf(source)).catch(() => {});
 
     if (images.length === 0) {
       // Stay in card mode so the header (Exit Shoot, stage pill) and shoot
