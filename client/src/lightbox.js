@@ -25,6 +25,14 @@ export function initLightbox() {
     if (isOpen && index === currentIndex) renderLightbox();
   });
 
+  // Reset lightbox state on source change (including Exit Shoot → idle)
+  bus.on(EVENTS.MODE_CHANGED, () => {
+    currentIndex = -1;
+    isOpen = false;
+    isZoomed = false;
+    if (lightboxEl) lightboxEl.classList.remove('active', 'closing');
+  });
+
   document.addEventListener('mousemove', handleDrag);
   document.addEventListener('mouseup', handleDragEnd);
 }

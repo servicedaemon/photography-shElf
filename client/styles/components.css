@@ -754,3 +754,35 @@
   color: var(--rose);
   background: rgba(192, 132, 132, 0.12);
 }
+
+/* Empty folder state — shown inside #grid when a folder has zero images */
+.empty-folder-msg {
+  grid-column: 1 / -1;
+  padding: 80px 20px;
+  text-align: center;
+  color: var(--tan);
+}
+.empty-folder-elf {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 16px;
+  filter: drop-shadow(0 0 16px rgba(224, 168, 46, 0.15));
+}
+.empty-folder-msg h3 {
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: var(--amber);
+  letter-spacing: 0.1em;
+  margin-bottom: 8px;
+}
+.empty-folder-msg p {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.6;
+  max-width: 440px;
+  margin: 0 auto;
+  color: var(--tan);
+  letter-spacing: 0.02em;
+}

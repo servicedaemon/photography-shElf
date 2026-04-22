@@ -95,15 +95,42 @@ async function extractJpeg(sourcePath) {
   return null;
 }
 
+// EXIF orientation → degrees for sharp.rotate()
+const ORIENT_TO_DEGREES = { 1: 0, 3: 180, 6: 90, 8: 270 };
+
 async function generateThumbnail(sourcePath, outputPath, maxDim) {
   await acquire();
   try {
     // Try extracting embedded JPEG first (fast path for RAW files)
     const extracted = await extractJpeg(sourcePath);
-
     const input = extracted || sourcePath;
-    await sharp(input)
-      .rotate() // Auto-rotate based on EXIF
+
+    // If we extracted a preview JPEG from a RAW/DNG, the embedded JPEG
+    // almost always has Orientation=1 (cameras pre-rotate the preview).
+    // sharp's argument-less .rotate() reads Orientation from the INPUT file —
+    // which is the extracted JPEG, not the DNG — so orientation changes
+    // we write to the DNG never show up. Fix: read the DNG's orientation
+    // explicitly and pass degrees to sharp.
+    let rotateDegrees = null;
+    if (extracted && extracted !== sourcePath) {
+      try {
+        const tags = await exiftool.read(sourcePath);
+        const o = typeof tags.Orientation === 'number' ? tags.Orientation : 1;
+        rotateDegrees = ORIENT_TO_DEGREES[o] ?? 0;
+      } catch {
+        rotateDegrees = 0;
+      }
+    }
+
+    const pipeline = sharp(input);
+    if (rotateDegrees !== null) {
+      // Rotate by explicit degrees based on the DNG/raw's orientation tag.
+      pipeline.rotate(rotateDegrees);
+    } else {
+      // Input IS the source file (not an extracted preview) — trust its EXIF.
+      pipeline.rotate();
+    }
+    await pipeline
       .resize(maxDim, maxDim, { fit: 'inside', withoutEnlargement: true })
       .jpeg({ quality: 85 })
       .toFile(outputPath);

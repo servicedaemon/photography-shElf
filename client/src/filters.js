@@ -12,6 +12,12 @@ export function initFilters() {
   bus.on(EVENTS.STATE_CHANGED, () => renderFilters());
   bus.on(EVENTS.IMAGE_MARKED, () => renderFilters());
   bus.on(EVENTS.BATCH_MARKED, () => renderFilters());
+  // When switching shoots (or exiting), reset to 'all' so a stale filter
+  // doesn't hide everything in the new folder.
+  bus.on(EVENTS.MODE_CHANGED, () => {
+    activeFilters = new Set(['all']);
+    setFilters(activeFilters);
+  });
 }
 
 function getCounts() {

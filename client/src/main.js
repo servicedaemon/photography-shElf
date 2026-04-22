@@ -174,6 +174,12 @@ function bindHeaderButtons() {
 function exitShoot() {
   mode = 'idle';
   source = '';
+  // Dismiss any open modal so a stuck overlay can't leak through
+  const overlay = document.getElementById('modal-overlay');
+  if (overlay) overlay.classList.remove('active');
+  // Clear grid state so stale data doesn't leak into the welcome screen
+  // (spacebar would otherwise open the lightbox against a previous shoot).
+  setGridData([], '', '', 'idle');
   bus.emit(EVENTS.MODE_CHANGED, { newMode: 'idle', newSource: '', newFolder: '', stage: 'CULL' });
   renderHeader();
   showEmptyState();
@@ -226,6 +232,30 @@ function hideEmptyState() {
   const empty = document.getElementById('app-empty');
   grid.style.display = '';
   empty.classList.remove('visible');
+}
+
+// Shown when a folder loaded successfully but contained zero images.
+// Stays in 'card' mode so the header (Exit Shoot, stage pill) and the
+// shoot folder navigator remain visible.
+function showEmptyFolderState() {
+  const grid = document.getElementById('grid');
+  const empty = document.getElementById('app-empty');
+  empty.classList.remove('visible');
+  grid.style.display = '';
+  grid.innerHTML = '';
+  const msg = document.createElement('div');
+  msg.className = 'empty-folder-msg';
+  const elfHost = document.createElement('div');
+  elfHost.className = 'empty-folder-elf';
+  msg.appendChild(elfHost);
+  const h = document.createElement('h3');
+  h.textContent = 'Nothing here yet';
+  msg.appendChild(h);
+  const p = document.createElement('p');
+  p.textContent = 'This folder has no image files. Use the shoot navigator above to jump to another folder, or Exit Shoot to start over.';
+  msg.appendChild(p);
+  grid.appendChild(msg);
+  createElf(elfHost, 'sleeping', 6);
 }
 
 // --- Scan for camera ---
@@ -443,10 +473,10 @@ async function loadSource(dir) {
     pushRecentShoot(source).catch(() => {});
 
     if (images.length === 0) {
-      showToast('No images found in that directory', 'error');
-      showEmptyState();
-      mode = 'idle';
-      renderHeader();
+      // Stay in card mode so the header (Exit Shoot, stage pill) and shoot
+      // nav (sibling folder chips) remain available — just show an empty
+      // message in the grid area instead of bouncing to welcome.
+      showEmptyFolderState();
     }
   } catch (e) {
     showToast('Failed to load images: ' + e.message, 'error');
@@ -699,11 +729,11 @@ async function handlePromoteFavorites() {
   );
   if (!confirmed) return;
 
-  // The current source is a Keeps folder; extract folder name for the API
-  const folderName = source.split(/[/\\]/).pop();
+  // Snapshot source so we can bail if the user navigated away mid-request.
+  const initialSource = source;
+  const folderName = initialSource.split(/[/\\]/).pop();
 
   try {
-    // First, persist favorites to the .favorites-state.json file (parallel)
     await Promise.all(favs.map(img =>
       fetch(`/api/folder/${encodeURIComponent(folderName)}/mark`, {
         method: 'POST',
@@ -712,21 +742,23 @@ async function handlePromoteFavorites() {
       })
     ));
 
-    // Then trigger the save-favorites move
     const res = await fetch(`/api/folder/${encodeURIComponent(folderName)}/save-favorites`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
     });
     const data = await res.json();
 
+    // User exited the shoot or loaded a different one while we were working.
+    // Swallow the result rather than showing a stuck bridge against wrong state.
+    if (source !== initialSource) return;
+
     showToast(`Promoted ${data.moved} image${data.moved !== 1 ? 's' : ''} to Favorites`, 'success');
     if (window.shelf && window.shelf.showNotification) {
       window.shelf.showNotification('Promoted to Favorites', `Moved ${data.moved} heroes`);
     }
-
-    // Show bridge card
     showPromoteBridge(data.moved, folderName);
   } catch (e) {
+    if (source !== initialSource) return;
     showToast('Promote failed: ' + e.message, 'error');
   }
 }
@@ -978,21 +1010,24 @@ function showConfirmModal(title, message) {
     `;
     overlay.classList.add('active');
 
+    // Define keyboard handler first so we can remove it from close().
+    // Previously if the modal was dismissed via overlay click, this handler
+    // leaked and every subsequent Escape press hit a stale listener.
+    const keyHandler = (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); close(true); }
+      else if (e.key === 'Escape') { e.preventDefault(); close(false); }
+    };
     const close = (value) => {
+      document.removeEventListener('keydown', keyHandler);
       overlay.classList.remove('active');
       resolve(value);
     };
+    document.addEventListener('keydown', keyHandler);
 
     document.getElementById('modal-confirm').addEventListener('click', () => close(true));
     document.getElementById('modal-cancel').addEventListener('click', () => close(false));
     overlay.addEventListener('click', (e) => {
       if (e.target === overlay) close(false);
-    });
-
-    // Keyboard
-    document.addEventListener('keydown', function handler(e) {
-      if (e.key === 'Enter') { close(true); document.removeEventListener('keydown', handler); }
-      if (e.key === 'Escape') { close(false); document.removeEventListener('keydown', handler); }
     });
   });
 }
@@ -1013,20 +1048,21 @@ function showChoiceModal(title, message, optionA, optionB) {
     `;
     overlay.classList.add('active');
 
+    const keyHandler = (e) => {
+      if (e.key === 'Escape') { e.preventDefault(); close(null); }
+    };
     const close = (value) => {
+      document.removeEventListener('keydown', keyHandler);
       overlay.classList.remove('active');
       resolve(value);
     };
+    document.addEventListener('keydown', keyHandler);
 
     document.getElementById('modal-option-a').addEventListener('click', () => close(true));
     document.getElementById('modal-option-b').addEventListener('click', () => close(false));
     document.getElementById('modal-cancel').addEventListener('click', () => close(null));
     overlay.addEventListener('click', (e) => {
       if (e.target === overlay) close(null);
-    });
-
-    document.addEventListener('keydown', function handler(e) {
-      if (e.key === 'Escape') { close(null); document.removeEventListener('keydown', handler); }
     });
   });
 }
