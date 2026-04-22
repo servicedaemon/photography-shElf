@@ -199,18 +199,22 @@ function showEmptyState() {
 
   createElf(document.getElementById('empty-elf'), 'idle', 8);
 
-  getRecentShoots().then(list => {
+  getRecentShoots().then((list) => {
     const el = document.getElementById('recent-shoots');
     if (!el || list.length === 0) return;
     el.innerHTML = `
       <h3 style="margin-top:32px;color:var(--tan);font-size:14px">Recent shoots</h3>
-      ${list.map(p => `
+      ${list
+        .map(
+          (p) => `
         <button class="folder-btn recent-btn" data-path="${p}" style="max-width:600px;margin:4px auto;display:block;text-align:left">
           ${p.split(/[/\\]/).slice(-2).join('/')}
         </button>
-      `).join('')}
+      `,
+        )
+        .join('')}
     `;
-    el.querySelectorAll('.recent-btn').forEach(btn => {
+    el.querySelectorAll('.recent-btn').forEach((btn) => {
       btn.addEventListener('click', () => openRecentShoot(btn.dataset.path));
     });
   });
@@ -244,7 +248,8 @@ function showEmptyFolderState() {
   h.textContent = 'Nothing here yet';
   msg.appendChild(h);
   const p = document.createElement('p');
-  p.textContent = 'This folder has no image files. Use the shoot navigator above to jump to another folder, or Exit Shoot to start over.';
+  p.textContent =
+    'This folder has no image files. Use the shoot navigator above to jump to another folder, or Exit Shoot to start over.';
   msg.appendChild(p);
   grid.appendChild(msg);
   createElf(elfHost, 'sleeping', 6);
@@ -293,9 +298,7 @@ async function selectDirectory() {
     const listing = await listRes.json();
 
     const hasContent =
-      listing.rootImageCount > 0 ||
-      listing.shoots.length > 0 ||
-      listing.otherFolders.length > 0;
+      listing.rootImageCount > 0 || listing.shoots.length > 0 || listing.otherFolders.length > 0;
 
     if (!hasContent) {
       showToast('No images or shoots found in that directory', 'error');
@@ -351,7 +354,9 @@ async function openRecentShoot(shootPath) {
     }
     const data = await res.json();
     // Find the matching shoot in the listing
-    const match = (data.shoots || []).find((s) => s.path === shootPath || s.name === shootPath.split(/[/\\]/).pop());
+    const match = (data.shoots || []).find(
+      (s) => s.path === shootPath || s.name === shootPath.split(/[/\\]/).pop(),
+    );
     if (match) {
       await loadSource(bestShootEntry(match));
     } else {
@@ -453,7 +458,8 @@ function showShootPicker(listing) {
     html += `</button>`;
   }
 
-  html += '<div class="modal-buttons"><button class="btn btn-muted" id="modal-cancel">Cancel</button></div></div>';
+  html +=
+    '<div class="modal-buttons"><button class="btn btn-muted" id="modal-cancel">Cancel</button></div></div>';
   overlay.innerHTML = html;
   overlay.classList.add('active');
 
@@ -484,7 +490,8 @@ function showDrivePicker(drives) {
     }
   }
 
-  html += '<div class="modal-buttons"><button class="btn btn-muted" id="modal-cancel">Cancel</button></div></div>';
+  html +=
+    '<div class="modal-buttons"><button class="btn btn-muted" id="modal-cancel">Cancel</button></div></div>';
   overlay.innerHTML = html;
   overlay.classList.add('active');
 
@@ -512,7 +519,8 @@ async function loadSource(dir) {
 
   // Show loading elf
   const grid = document.getElementById('grid');
-  grid.innerHTML = '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:80px;gap:16px;grid-column:1/-1"><div id="loading-elf"></div><p style="color:var(--tan)">Loading images...</p></div>';
+  grid.innerHTML =
+    '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:80px;gap:16px;grid-column:1/-1"><div id="loading-elf"></div><p style="color:var(--tan)">Loading images...</p></div>';
   createElf(document.getElementById('loading-elf'), 'scribbling', 6);
 
   try {
@@ -569,7 +577,9 @@ async function handleSort() {
       const ctx = await ctxRes.json();
       if (ctx.insideShoot) shootContext = ctx;
     }
-  } catch { /* fall through */ }
+  } catch {
+    /* fall through */
+  }
 
   // Unified sort modal with a "Save to a new dated shoot folder" checkbox.
   // Default: unchecked when inside a shoot (sort in place), checked when
@@ -628,7 +638,7 @@ function showSortModal({ counts, shootContext }) {
     const check = document.createElement('input');
     check.type = 'checkbox';
     check.id = 'sort-new-shoot';
-    check.checked = !insideShoot;  // default ON for loose folders / card imports
+    check.checked = !insideShoot; // default ON for loose folders / card imports
     if (!insideShoot) check.disabled = true;
     const checkLabel = document.createElement('span');
     checkLabel.textContent = 'Create as a new dated shoot instead';
@@ -677,8 +687,10 @@ function showSortModal({ counts, shootContext }) {
     overlay.classList.add('active');
 
     const keyHandler = (e) => {
-      if (e.key === 'Escape') { e.preventDefault(); close(null); }
-      else if (e.key === 'Enter' && document.activeElement !== nameInput) {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        close(null);
+      } else if (e.key === 'Enter' && document.activeElement !== nameInput) {
         // Enter anywhere except inside the name field triggers confirm
         e.preventDefault();
         onConfirm();
@@ -702,7 +714,10 @@ function showSortModal({ counts, shootContext }) {
         if (markedTotal === 0) {
           // Sort in place with no marks = no-op. Warn instead of proceeding.
           cancel.click();
-          showToast('Nothing marked to sort in place. Press K / F / X first, or check "new shoot".', 'error');
+          showToast(
+            'Nothing marked to sort in place. Press K / F / X first, or check "new shoot".',
+            'error',
+          );
           return;
         }
         close({ mode: 'in-place' });
@@ -712,9 +727,14 @@ function showSortModal({ counts, shootContext }) {
     cancel.addEventListener('click', () => close(null));
     confirm.addEventListener('click', onConfirm);
     nameInput.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') { e.preventDefault(); onConfirm(); }
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        onConfirm();
+      }
     });
-    overlay.addEventListener('click', (e) => { if (e.target === overlay) close(null); });
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) close(null);
+    });
     document.addEventListener('keydown', keyHandler);
   });
 }
@@ -727,10 +747,14 @@ async function doSortInPlace(ctx) {
       body: JSON.stringify({ source }),
     });
     const data = await res.json();
-    if (!res.ok) { showToast(data.error || 'Sort failed', 'error'); return; }
+    if (!res.ok) {
+      showToast(data.error || 'Sort failed', 'error');
+      return;
+    }
 
     const moved = data.moved || {};
-    const totalMoved = (moved.keep || 0) + (moved.favorite || 0) + (moved.reject || 0) + (moved.unsorted || 0);
+    const totalMoved =
+      (moved.keep || 0) + (moved.favorite || 0) + (moved.reject || 0) + (moved.unsorted || 0);
     const resultParts = [];
     if (moved.keep) resultParts.push(`${moved.keep} → keeps`);
     if (moved.favorite) resultParts.push(`${moved.favorite} → Favorites`);
@@ -742,7 +766,10 @@ async function doSortInPlace(ctx) {
       showToast(`${data.errors.length} files had errors`, 'error');
     }
     if (window.shelf && window.shelf.showNotification) {
-      window.shelf.showNotification('Sorted in place', `${totalMoved} images into ${ctx.shootName}`);
+      window.shelf.showNotification(
+        'Sorted in place',
+        `${totalMoved} images into ${ctx.shootName}`,
+      );
     }
 
     // Refresh the grid so stale marks clear and the user sees what's left.
@@ -842,7 +869,10 @@ async function handleConvert() {
     showToast(`DNG conversion done: ${parts.join(', ')}`, data.errors.length ? 'error' : 'success');
     if (window.shelf && window.shelf.setProgress) window.shelf.setProgress(-1);
     if (window.shelf && window.shelf.showNotification) {
-      window.shelf.showNotification('DNG conversion complete', `Converted ${data.converted} images`);
+      window.shelf.showNotification(
+        'DNG conversion complete',
+        `Converted ${data.converted} images`,
+      );
     }
 
     // Refresh to show new DNG files
@@ -857,9 +887,7 @@ async function handleConvert() {
 
 async function handleOpenEditor() {
   // Determine the Favorites folder path
-  const favoritesPath = /[/\\]Favorites$/.test(source)
-    ? source
-    : source + '/Favorites';
+  const favoritesPath = /[/\\]Favorites$/.test(source) ? source : source + '/Favorites';
 
   try {
     const res = await fetch('/api/open-in-lightroom', {
@@ -874,7 +902,13 @@ async function handleOpenEditor() {
       return;
     }
 
-    showToast('Opening Favorites in Lightroom...', 'success');
+    // Server tells us what it actually opened — Lightroom on macOS, the file
+    // manager on Windows/Linux. Phrase the toast accordingly.
+    const msg =
+      data.opened === 'lightroom'
+        ? 'Opening Favorites in Lightroom...'
+        : 'Opened Favorites — drag into your editor from here.';
+    showToast(msg, 'success');
   } catch (e) {
     showToast('Failed to open Lightroom: ' + e.message, 'error');
   }
@@ -882,7 +916,7 @@ async function handleOpenEditor() {
 
 async function handlePromoteFavorites() {
   const images = getImages();
-  const favs = images.filter(i => (i.status || 'unmarked') === 'favorite');
+  const favs = images.filter((i) => (i.status || 'unmarked') === 'favorite');
 
   if (favs.length === 0) {
     showToast('No favorites marked', 'error');
@@ -900,13 +934,15 @@ async function handlePromoteFavorites() {
   const folderName = initialSource.split(/[/\\]/).pop();
 
   try {
-    await Promise.all(favs.map(img =>
-      fetch(`/api/folder/${encodeURIComponent(folderName)}/mark`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ filename: img.filename, status: 'favorite' }),
-      })
-    ));
+    await Promise.all(
+      favs.map((img) =>
+        fetch(`/api/folder/${encodeURIComponent(folderName)}/mark`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ filename: img.filename, status: 'favorite' }),
+        }),
+      ),
+    );
 
     const res = await fetch(`/api/folder/${encodeURIComponent(folderName)}/save-favorites`, {
       method: 'POST',
@@ -962,7 +998,10 @@ async function handleMoveToShoot() {
       showToast(data.error || 'Move failed', 'error');
       return;
     }
-    showToast(`Moved ${data.moved} image${data.moved !== 1 ? 's' : ''} to ${dest.newShootName || dest.existingPath?.split(/[/\\]/).pop() || 'shoot'}`, 'success');
+    showToast(
+      `Moved ${data.moved} image${data.moved !== 1 ? 's' : ''} to ${dest.newShootName || dest.existingPath?.split(/[/\\]/).pop() || 'shoot'}`,
+      'success',
+    );
     if (data.errors && data.errors.length) {
       showToast(`${data.errors.length} files had errors`, 'error');
     }
@@ -976,18 +1015,26 @@ async function handleMoveToShoot() {
 function showMoveToShootModal(count, siblings) {
   return new Promise((resolve) => {
     const overlay = document.getElementById('modal-overlay');
-    const siblingList = siblings.map(s => `
+    const siblingList = siblings
+      .map(
+        (s) => `
       <button class="folder-btn sibling-btn" data-path="${s.path}">${s.name}</button>
-    `).join('');
+    `,
+      )
+      .join('');
 
     overlay.innerHTML = `
       <div class="modal">
         <h2>Move ${count} to Shoot</h2>
         <p>Files will land in the destination\u2019s <code>unsorted/</code> folder.</p>
-        ${siblings.length > 0 ? `
+        ${
+          siblings.length > 0
+            ? `
           <h3 style="font-size:10px;letter-spacing:0.2em;text-transform:uppercase;color:var(--ink-dim);margin:14px 0 6px">Existing shoots</h3>
           ${siblingList}
-        ` : ''}
+        `
+            : ''
+        }
         <h3 style="font-size:10px;letter-spacing:0.2em;text-transform:uppercase;color:var(--ink-dim);margin:14px 0 6px">Or create new</h3>
         <input class="modal-input" id="move-newshoot" placeholder="New shoot name" autofocus>
         <div class="modal-buttons">
@@ -1003,7 +1050,7 @@ function showMoveToShootModal(count, siblings) {
       resolve(value);
     };
 
-    overlay.querySelectorAll('.sibling-btn').forEach(btn => {
+    overlay.querySelectorAll('.sibling-btn').forEach((btn) => {
       btn.addEventListener('click', () => close({ existingPath: btn.dataset.path }));
     });
     document.getElementById('move-confirm-new').addEventListener('click', () => {
@@ -1149,7 +1196,9 @@ function showInputModal(title, message, placeholder) {
       resolve(value);
     };
 
-    document.getElementById('modal-confirm').addEventListener('click', () => close(input.value.trim() || null));
+    document
+      .getElementById('modal-confirm')
+      .addEventListener('click', () => close(input.value.trim() || null));
     document.getElementById('modal-cancel').addEventListener('click', () => close(null));
     input.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') close(input.value.trim() || null);
@@ -1180,8 +1229,13 @@ function showConfirmModal(title, message) {
     // Previously if the modal was dismissed via overlay click, this handler
     // leaked and every subsequent Escape press hit a stale listener.
     const keyHandler = (e) => {
-      if (e.key === 'Enter') { e.preventDefault(); close(true); }
-      else if (e.key === 'Escape') { e.preventDefault(); close(false); }
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        close(true);
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        close(false);
+      }
     };
     const close = (value) => {
       document.removeEventListener('keydown', keyHandler);
@@ -1215,7 +1269,10 @@ function showChoiceModal(title, message, optionA, optionB) {
     overlay.classList.add('active');
 
     const keyHandler = (e) => {
-      if (e.key === 'Escape') { e.preventDefault(); close(null); }
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        close(null);
+      }
     };
     const close = (value) => {
       document.removeEventListener('keydown', keyHandler);

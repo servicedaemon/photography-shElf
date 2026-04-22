@@ -1,6 +1,6 @@
 {
   "name": "photography-shelf",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "Shelf — a pixel-elf-themed photo darkroom for sorting camera raws",
   "type": "module",
   "main": "electron/main.js",
@@ -70,6 +70,33 @@
         "nsis"
       ],
       "icon": "electron/icon/source.png"
+    },
+    "linux": {
+      "category": "Graphics",
+      "maintainer": "Ava Bellpepper <ava@users.noreply.github.com>",
+      "target": [
+        {
+          "target": "AppImage",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "deb",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "electron/icon/source.png",
+      "synopsis": "A cozy photo darkroom for sorting camera raws",
+      "desktop": {
+        "entry": {
+          "Name": "Shelf",
+          "Comment": "A cozy photo darkroom for sorting camera raws",
+          "Categories": "Graphics;Photography;"
+        }
+      }
     },
     "dmg": {
       "contents": [

@@ -13,7 +13,7 @@ on:
         required: true
 
 permissions:
-  contents: write  # needed to create/update a GitHub Release
+  contents: write # needed to create/update a GitHub Release
 
 jobs:
   build-macos:
@@ -24,9 +24,9 @@ jobs:
       matrix:
         include:
           - arch: arm64
-            runner: macos-14       # Apple Silicon
+            runner: macos-14 # Apple Silicon
           - arch: x64
-            runner: macos-13       # Intel
+            runner: macos-13 # Intel
 
     steps:
       - name: Checkout
@@ -100,11 +100,53 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
+  build-linux:
+    name: Build Linux (x64)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install Linux packaging deps
+        # fakeroot is required by electron-builder to build .deb packages
+        run: sudo apt-get update && sudo apt-get install -y fakeroot
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate app icon
+        run: node scripts/build-icon.mjs
+
+      - name: Build client
+        run: npm run build
+
+      - name: Package AppImage + deb
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+        run: npx electron-builder --linux --x64 --publish never
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: shelf-linux-x64
+          path: |
+            dist-electron/*.AppImage
+            dist-electron/*.deb
+          if-no-files-found: error
+          retention-days: 14
+
   publish:
     name: Attach artifacts to Release
     needs:
       - build-macos
       - build-windows
+      - build-linux
     runs-on: ubuntu-latest
     steps:
       - name: Download all artifacts
@@ -139,3 +181,5 @@ jobs:
             artifacts/**/*.dmg.blockmap
             artifacts/**/*.exe
             artifacts/**/*.exe.blockmap
+            artifacts/**/*.AppImage
+            artifacts/**/*.deb

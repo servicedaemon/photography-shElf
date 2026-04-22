@@ -62,6 +62,10 @@ const LIGHTROOM_BUNDLE_IDS = [
 // Fallback app names if bundle IDs fail (older installs, renamed apps)
 const LIGHTROOM_APP_NAMES = ['Adobe Lightroom', 'Adobe Lightroom Classic', 'Lightroom'];
 
+// Open the given folder in Lightroom on macOS, or in the system file manager
+// on Windows/Linux (since Lightroom doesn't exist on Linux and the Windows
+// Lightroom handoff is less reliable than letting the user drag from Explorer).
+// Returns 'lightroom' or 'filemanager' so the caller can phrase the toast.
 export async function openFolderInLightroom(folderPath) {
   const resolved = path.resolve(folderPath);
 
@@ -76,14 +80,17 @@ export async function openFolderInLightroom(folderPath) {
     for (const args of attempts) {
       try {
         await execFileAsync('open', args);
-        return; // success
+        return 'lightroom';
       } catch (e) {
         lastError = e;
       }
     }
     throw lastError || new Error('Lightroom not found');
-  } else {
-    // Windows/Linux: try to open with default app
-    await open(resolved);
   }
+
+  // Windows: Explorer. Linux: xdg-open via the `open` package.
+  // Neither platform reliably hands a folder to Lightroom, so surface the
+  // folder in the file manager and let the user drag from there.
+  await open(resolved);
+  return 'filemanager';
 }

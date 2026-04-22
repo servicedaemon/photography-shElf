@@ -12,7 +12,7 @@
 <p align="center">
   <a href="https://github.com/servicedaemon/photography-shElf/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/servicedaemon/photography-shElf?style=flat-square&color=e0a82e&label=release"></a>
   <a href="LICENSE"><img alt="MIT license" src="https://img.shields.io/badge/license-MIT-e0a82e?style=flat-square"></a>
-  <img alt="Platform" src="https://img.shields.io/badge/platform-macOS%20%C2%B7%20Windows-a8bccc?style=flat-square">
+  <img alt="Platform" src="https://img.shields.io/badge/platform-macOS%20%C2%B7%20Windows%20%C2%B7%20Linux-a8bccc?style=flat-square">
   <img alt="Built with Electron" src="https://img.shields.io/badge/electron-33-9ab58a?style=flat-square">
 </p>
 
@@ -41,7 +41,7 @@ It is not a RAW developer — Lightroom (or Capture One, or Photoshop) is. It's 
 - **Move to Shoot** — select a range, move it to another shoot (existing or new), lands as `unsorted/`.
 - **Empty Rejects** — one click moves reject photos to the system Trash. Recoverable until you empty it.
 - **DNG conversion** — bundled `dnglab` support turns CR3/NEF/etc. into lossless DNG for Lightroom compatibility.
-- **Edit in Lightroom** — one-click handoff opens your Favorites folder in Adobe Lightroom CC.
+- **Edit in Lightroom** — one-click handoff opens your Favorites folder in Lightroom on macOS (or your file manager on Windows/Linux, drag from there).
 - **EXIF inspector + tags** — sidebar shows camera, lens, exposure, lets you write keyword tags.
 - **Rotation** — `⌥←` / `⌥→` rotates via EXIF orientation.
 - **Drag-drop ingest** — drop a folder on the window, it loads instantly. Recent shoots on the welcome screen.
@@ -52,11 +52,13 @@ It is not a RAW developer — Lightroom (or Capture One, or Photoshop) is. It's 
 
 ## 📥 Download
 
-| Platform | File | Notes |
-|---|---|---|
-| **macOS (Apple Silicon)** | `Shelf-1.0.3-arm64.dmg` | Native for M-series Macs |
-| **macOS (Intel)** | `Shelf-1.0.3-x64.dmg` | For Intel Macs |
-| **Windows 10/11** | `Shelf-Setup-1.0.3.exe` | NSIS installer, x64 |
+| Platform                  | File                    | Notes                        |
+| ------------------------- | ----------------------- | ---------------------------- |
+| **macOS (Apple Silicon)** | `Shelf-1.0.4-arm64.dmg` | Native for M-series Macs     |
+| **macOS (Intel)**         | `Shelf-1.0.4-x64.dmg`   | For Intel Macs               |
+| **Windows 10/11**         | `Shelf-Setup-1.0.4.exe` | NSIS installer, x64          |
+| **Linux — AppImage**      | `Shelf-1.0.4.AppImage`  | Universal, no install needed |
+| **Linux — Debian/Ubuntu** | `shelf_1.0.4_amd64.deb` | `sudo dpkg -i`               |
 
 Latest release: **[GitHub Releases →](https://github.com/servicedaemon/photography-shElf/releases/latest)**
 
@@ -69,53 +71,83 @@ Latest release: **[GitHub Releases →](https://github.com/servicedaemon/photogr
 4. Optional for DNG conversion: `brew install dnglab` — only needed if you shoot CR3/CR2/ARW/NEF/RAF and want Lightroom-compatible DNGs.
 
 > **If macOS says "Shelf is damaged and can't be opened"** instead of the normal unidentified-developer warning, open Terminal and run:
+>
 > ```bash
 > xattr -cr /Applications/Shelf.app
 > ```
+>
 > Then double-click again. This clears macOS's download-quarantine flag that's blocking launch. (We ad-hoc codesign the app in CI specifically to avoid this, but some macOS versions are more aggressive than others.)
 
 ### Installing on Windows
 
-1. Download `Shelf-Setup-1.0.3.exe` from the releases page.
+1. Download `Shelf-Setup-1.0.4.exe` from the releases page.
 2. Double-click to run the installer. Follow the prompts.
 3. **First launch**: Windows SmartScreen will warn _"Windows protected your PC."_
    Click **More info** → **Run anyway**. _This is needed once because the app isn't code-signed. After the first approval, double-click works forever._
 4. Optional for DNG conversion: `choco install dnglab` (via [Chocolatey](https://chocolatey.org)) or download the binary from [dnglab releases](https://github.com/dnglab/dnglab/releases) and put it on your PATH.
 
 **Windows known limitations:**
+
 - **"Edit in Lightroom"** opens the Favorites folder in File Explorer instead of Lightroom directly. From there, drag the photos into Lightroom or use Lightroom's File → Add Photos. (On macOS, Lightroom auto-opens with the folder.)
 - Config lives at `%APPDATA%\shelf\config.json` (not `~/.shelf`).
+
+### Installing on Linux
+
+**AppImage (any distro):**
+
+1. Download `Shelf-1.0.4.AppImage` from the releases page.
+2. `chmod +x Shelf-1.0.4.AppImage && ./Shelf-1.0.4.AppImage`
+3. Most desktop environments let you double-click AppImages directly after marking executable.
+
+> **If the AppImage fails with a FUSE error** on Ubuntu 24.04+, install the FUSE2 compatibility package: `sudo apt-get install libfuse2`. Or run it with `--no-sandbox` as a temporary workaround.
+
+**Debian/Ubuntu (.deb):**
+
+1. Download `shelf_1.0.4_amd64.deb` from the releases page.
+2. `sudo dpkg -i shelf_1.0.4_amd64.deb`
+3. Launch from your application menu or run `shelf` in a terminal.
+
+Optional for DNG conversion: install `dnglab` from the [dnglab releases](https://github.com/dnglab/dnglab/releases) and put it on your PATH, or `cargo install dnglab` if you have Rust installed.
+
+**Linux known limitations:**
+
+- **"Edit in Lightroom"** opens the Favorites folder in your default file manager (xdg-open) — Lightroom doesn't exist on Linux. Drag the photos from there into your editor of choice (RawTherapee, darktable, etc.).
+- Folder picker requires `zenity` (pre-installed on most GNOME-based distros). If it fails: `sudo apt-get install zenity`.
+- Config lives at `~/.config/shelf/config.json`.
 
 ---
 
 ## ⌨️ Keyboard shortcuts
 
 ### Marking
-| Key | Action |
-|---|---|
-| `K` | Keep + advance |
-| `F` | Favorite + advance |
-| `X` | Reject + advance |
-| `U` | Unmark + advance |
-| Click | Toggle keep |
-| Double-click | Toggle favorite |
-| `⌘`+Click | Toggle reject |
-| Shift+Click, Shift+Click | Select range |
+
+| Key                      | Action             |
+| ------------------------ | ------------------ |
+| `K`                      | Keep + advance     |
+| `F`                      | Favorite + advance |
+| `X`                      | Reject + advance   |
+| `U`                      | Unmark + advance   |
+| Click                    | Toggle keep        |
+| Double-click             | Toggle favorite    |
+| `⌘`+Click                | Toggle reject      |
+| Shift+Click, Shift+Click | Select range       |
 
 ### Navigation
-| Key | Action |
-|---|---|
-| `← ↑ → ↓` | Move cursor |
-| `Space` | Toggle preview (lightbox) |
-| `⌥`+Click | Peek preview (hold) |
-| `⌥←` `⌥→` | Rotate image |
+
+| Key       | Action                    |
+| --------- | ------------------------- |
+| `← ↑ → ↓` | Move cursor               |
+| `Space`   | Toggle preview (lightbox) |
+| `⌥`+Click | Peek preview (hold)       |
+| `⌥←` `⌥→` | Rotate image              |
 
 ### Panels
-| Key | Action |
-|---|---|
-| `I` | Toggle EXIF sidebar |
-| `?` | Keyboard shortcuts overlay |
-| `⌘Z` | Undo last mark |
+
+| Key   | Action                          |
+| ----- | ------------------------------- |
+| `I`   | Toggle EXIF sidebar             |
+| `?`   | Keyboard shortcuts overlay      |
+| `⌘Z`  | Undo last mark                  |
 | `Esc` | Close overlay / clear selection |
 
 ---
@@ -192,19 +224,25 @@ No React. No Redux. No Tailwind. Just modules + events + CSS variables.
 ## 🐛 Troubleshooting
 
 ### "Shelf can't be opened because Apple cannot check it for malicious software"
+
 First launch only. Right-click → Open → Open. This is because the app isn't code-signed.
 
 ### "Convert to DNG" is greyed out / returns 501
+
 `dnglab` isn't installed or can't be found. Install it:
+
 ```bash
 brew install dnglab
 ```
+
 Shelf looks in `/opt/homebrew/bin/dnglab` (Apple Silicon) and `/usr/local/bin/dnglab` (Intel).
 
 ### Lightroom says "this folder doesn't contain any editable media"
+
 Your Lightroom CC version doesn't recognize your camera's raw format. Use Shelf's **Convert to DNG** button — DNG is Adobe's universal raw format and will always open. (Especially common with brand-new camera bodies released within the last year.)
 
 ### (Windows) Thumbnails don't generate / EXIF reads silently fail
+
 `exiftool-vendored` extracts a bundled executable to your temp directory on first run. Windows Defender occasionally flags this extraction and blocks it. If thumbnail generation isn't working:
 
 1. Open **Windows Security** → **Virus & threat protection** → **Manage settings** → **Exclusions**
@@ -214,6 +252,7 @@ Your Lightroom CC version doesn't recognize your camera's raw format. Use Shelf'
 Symptom: photos load as placeholders/skeletons but never resolve to real thumbnails.
 
 ### Window opens off-screen after a display change
+
 Disconnect → reconnect external displays. Shelf detects the change and clamps the window to your primary display on next launch. If it persists, delete `~/.shelf/config.json`.
 
 ---
@@ -221,6 +260,7 @@ Disconnect → reconnect external displays. Shelf detects the change and clamps 
 ## 🤝 Contributing
 
 Shelf is personal-scale software but issues and PRs are welcome, especially:
+
 - Bug reports (include OS + camera model + Shelf version)
 - UI polish suggestions
 - Camera format support gaps

@@ -18,7 +18,14 @@ configRoutes.put('/config', (req, res) => {
   const updates = req.body;
 
   // Only allow known config keys
-  const allowed = ['sortDir', 'thumbSize', 'defaultSource', 'recentShoots', 'hintStripVisible', 'windowBounds'];
+  const allowed = [
+    'sortDir',
+    'thumbSize',
+    'defaultSource',
+    'recentShoots',
+    'hintStripVisible',
+    'windowBounds',
+  ];
   for (const key of Object.keys(updates)) {
     if (allowed.includes(key)) {
       current[key] = updates[key];
@@ -37,7 +44,7 @@ configRoutes.post('/recent-shoots/push', (req, res) => {
   }
   const current = getConfig();
   const list = Array.isArray(current.recentShoots) ? current.recentShoots : [];
-  const deduped = [p, ...list.filter(x => x !== p)].slice(0, 10);
+  const deduped = [p, ...list.filter((x) => x !== p)].slice(0, 10);
   current.recentShoots = deduped;
   setConfig(current);
   res.json({ recentShoots: deduped });
@@ -129,9 +136,7 @@ configRoutes.get('/list-dir', (req, res) => {
       continue;
     }
 
-    const subDirs = subEntries
-      .filter((e) => e.isDirectory())
-      .map((e) => e.name.toLowerCase());
+    const subDirs = subEntries.filter((e) => e.isDirectory()).map((e) => e.name.toLowerCase());
 
     const hasSortSubs = SORT_SUBFOLDER_NAMES.some((s) => subDirs.includes(s));
 
@@ -188,10 +193,9 @@ configRoutes.post('/open-in-lightroom', async (req, res) => {
   }
 
   try {
-    await openFolderInLightroom(resolved);
-    res.json({ ok: true });
+    const opened = await openFolderInLightroom(resolved);
+    res.json({ ok: true, opened });
   } catch (e) {
     res.status(500).json({ error: 'Failed to open Lightroom: ' + e.message });
   }
 });
-
