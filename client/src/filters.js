@@ -8,6 +8,10 @@ let activeFilters = new Set(['all']);
 
 export function initFilters() {
   filtersEl = document.getElementById('filters');
+  if (filtersEl) {
+    filtersEl.setAttribute('role', 'group');
+    filtersEl.setAttribute('aria-label', 'Filter images by marking status');
+  }
 
   bus.on(EVENTS.STATE_CHANGED, () => renderFilters());
   bus.on(EVENTS.IMAGE_MARKED, () => renderFilters());
@@ -55,7 +59,9 @@ function renderFilters() {
     favorite: 'Favorite',
   };
 
-  let html = '';
+  // Leading label distinguishes the filter row from the shoot-nav chips
+  // above — they look similar but do very different things.
+  let html = '<span class="filter-label">Filter</span>';
   for (const key of pills) {
     const active = activeFilters.has(key) ? ' active' : '';
     html += `<button class="filter-pill${active}" data-filter="${key}">`;

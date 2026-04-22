@@ -111,24 +111,19 @@ function renderHeader() {
     `;
   } else if (mode === 'card') {
     const images = getImages();
-    let keeps = 0, favs = 0, rejects = 0;
+    // Per-session mark counts (used only to decide whether to show "Deselect All").
+    // The numeric per-status display moved to the action bar + shoot-nav chips
+    // where counts reflect the filesystem state, not just this session.
+    let total = 0;
     for (const i of images) {
       const s = i.status || 'unmarked';
-      if (s === 'keep') keeps++;
-      else if (s === 'favorite') favs++;
-      else if (s === 'reject') rejects++;
+      if (s === 'keep' || s === 'favorite' || s === 'reject') total++;
     }
-    const total = keeps + favs + rejects;
-    const unsorted = images.length - total;
     const hasMarks = total > 0;
 
     header.innerHTML = `
       <div class="elf-corner" id="header-elf"></div>
       <h1>Shelf</h1>
-      <span class="stat stat-keep">${keeps} keep</span>
-      <span class="stat stat-favorite">${favs} fav</span>
-      <span class="stat stat-reject">${rejects} reject</span>
-      <span class="stat stat-unsorted">${unsorted} unsorted</span>
       <div class="header-spacer"></div>
       <div class="thumb-slider">
         <label>Size</label>
@@ -610,6 +605,7 @@ function showSortModal({ counts, shootContext }) {
     h.textContent = 'Sort to Folders';
     modal.appendChild(h);
 
+    // Summary line — what we're about to sort
     const summary = document.createElement('p');
     const parts = [];
     if (keeps) parts.push(`${keeps} keeps`);
@@ -619,24 +615,29 @@ function showSortModal({ counts, shootContext }) {
     summary.textContent = parts.join(' · ') || '0 marked';
     modal.appendChild(summary);
 
-    // Checkbox: only "new shoot" mode when user explicitly opts in
+    // Explainer describing the action that WILL happen — sits above the
+    // checkbox so it reads as context, not as "what checking the box enables"
+    const explainer = document.createElement('p');
+    explainer.className = 'sort-explainer';
+    modal.appendChild(explainer);
+
+    // Checkbox — toggles between in-place vs new-bundle.
+    // When NOT inside a shoot, there's no "in place" target, so we force
+    // the checkbox on and disable it (new-bundle is the only valid mode).
     const checkRow = document.createElement('label');
     checkRow.className = 'sort-check-row';
     const check = document.createElement('input');
     check.type = 'checkbox';
     check.id = 'sort-new-shoot';
-    // Default ON when NOT inside a shoot (i.e. camera card / loose folder)
-    check.checked = !insideShoot;
+    check.checked = !insideShoot;  // default ON for loose folders / card imports
+    if (!insideShoot) check.disabled = true;
     const checkLabel = document.createElement('span');
-    checkLabel.textContent = 'Save to a new dated shoot folder';
+    checkLabel.textContent = 'Create as a new dated shoot instead';
     checkRow.append(check, checkLabel);
+    if (!insideShoot) checkRow.classList.add('is-disabled');
     modal.appendChild(checkRow);
 
-    const explainer = document.createElement('p');
-    explainer.className = 'sort-explainer';
-    modal.appendChild(explainer);
-
-    // Name input — shown when checkbox is checked
+    // Name input — appears below the checkbox, only when checked
     const nameWrap = document.createElement('div');
     nameWrap.className = 'sort-name-wrap';
     const nameInput = document.createElement('input');
@@ -650,9 +651,12 @@ function showSortModal({ counts, shootContext }) {
       const newShoot = check.checked;
       nameWrap.style.display = newShoot ? '' : 'none';
       if (newShoot) {
-        explainer.textContent = `Will create Keeps / Favorites / Rejects / Unsorted folders in ~/Pictures/sorted/ using the shoot name.`;
+        explainer.textContent = `Creates a new dated bundle — Keeps / Favorites / Rejects / Unsorted folders in ~/Pictures/sorted/ using the shoot name below.`;
       } else {
-        explainer.textContent = `Will move marked images into "${shootContext.shootName}"'s existing folders. Unmarked photos stay in place.`;
+        // shootContext is guaranteed to exist here: the checkbox is disabled
+        // when shootContext is null, so this branch can't run. Belt-and-suspenders.
+        const name = shootContext?.shootName || 'the current shoot';
+        explainer.textContent = `Routes marked images into "${name}"'s existing folders. Unmarked photos stay in place.`;
       }
     }
     check.addEventListener('change', updateMode);
