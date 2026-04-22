@@ -17,6 +17,6 @@ export default [
     },
   },
   {
-    ignores: ['dist/', 'node_modules/'],
+    ignores: ['dist/', 'dist-electron/', 'node_modules/'],
   },
 ];

@@ -3,6 +3,20 @@
 All notable changes to Shelf will be documented here.
 Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [1.0.3] — 2026-04-22
+
+Hotfix for three bugs caught during live culling on a real shoot.
+
+### Fixed
+- **"Failed to load metadata" after adding a single tag** — exiftool returns `Keywords` as a string when a tag has one value, an array when multiple. The sidebar's `.map()` crashed on the string. Server now coerces single-value tags to arrays before responding.
+- **Adding a second tag wiped the first** — `addTag` was writing `Keywords: [tag]`, which exiftool treats as REPLACE. Switched to the `Keywords+` append-suffix so tags accumulate as expected.
+- **"Unable to find application named 'Adobe Lightroom CC'"** — `/Applications/Adobe Lightroom CC/` is the container folder, not the app; the actual app inside is `Adobe Lightroom.app`. `openFolderInLightroom` now targets by bundle ID (`com.adobe.lightroomCC`) with named-app fallbacks, so the handoff works across Lightroom CC and Classic installs.
+- **Filename appeared twice on broken thumbnails** — `<img alt="filename">` caused the browser to render the filename inside the broken-image box, on top of the existing label. Switched image alts to `alt=""` (decorative) since filename is conveyed by the label/info region below.
+
+### Under the hood
+- Cleaned up unused `VALID_FILENAME` constant in `server/lib/platform.js`
+- Added `dist-electron/` to the eslint ignore list (was linting built artifacts)
+
 ## [1.0.2] — 2026-04-22
 
 Hotfix for macOS install friction.

@@ -189,7 +189,11 @@ function renderGrid() {
     if (status !== 'unmarked') card.classList.add(status);
     if (i === selectedIndex) card.classList.add('selected');
 
-    if (currentSelectionRange && i >= currentSelectionRange.start && i <= currentSelectionRange.end) {
+    if (
+      currentSelectionRange &&
+      i >= currentSelectionRange.start &&
+      i <= currentSelectionRange.end
+    ) {
       card.classList.add('selection');
     }
 
@@ -198,11 +202,13 @@ function renderGrid() {
     skeleton.className = 'skeleton';
     card.appendChild(skeleton);
 
-    // Image (lazy loaded)
+    // Image (lazy loaded).
+    // alt="" (decorative) because the label below already shows the filename;
+    // a populated alt would double-render on broken-thumbnail fallback.
     const imgEl = document.createElement('img');
     imgEl.dataset.src = thumbUrl(img.filename);
     imgEl.draggable = false;
-    imgEl.alt = img.filename;
+    imgEl.alt = '';
     card.appendChild(imgEl);
 
     // Label

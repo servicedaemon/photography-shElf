@@ -12,6 +12,13 @@ function validateFilename(f) {
   return VALID_FILENAME.test(f) && !f.includes('..');
 }
 
+// exiftool returns a string for single-value tags, an array for multi-value.
+// Normalize to array for predictable client consumption.
+function toArray(v) {
+  if (v == null) return [];
+  return Array.isArray(v) ? v : [v];
+}
+
 // Read EXIF metadata for a single file
 metadataRoutes.get('/metadata/:filename', async (req, res) => {
   const { filename } = req.params;
@@ -57,8 +64,10 @@ metadataRoutes.get('/metadata/:filename', async (req, res) => {
         colorSpace: tags.ColorSpace,
       },
       tags: {
-        keywords: tags.Keywords || [],
-        subject: tags.Subject || [],
+        // exiftool returns a string when a tag has a single value, array when
+        // multiple. Always coerce to array for consistent client consumption.
+        keywords: toArray(tags.Keywords),
+        subject: toArray(tags.Subject),
         title: tags.Title,
         description: tags.Description || tags.ImageDescription,
         rating: tags.Rating,
@@ -141,8 +150,7 @@ metadataRoutes.post('/rotate', async (req, res) => {
     const ccwMap = { 1: 8, 8: 3, 3: 6, 6: 1, 2: 5, 5: 4, 4: 7, 7: 2 };
     const map = direction === 'cw' ? cwMap : ccwMap;
 
-    const orientNum =
-      typeof currentOrientation === 'number' ? currentOrientation : 1;
+    const orientNum = typeof currentOrientation === 'number' ? currentOrientation : 1;
     const newOrientation = map[orientNum] || 1;
 
     // Invalidate cached thumbs BEFORE writing — cache key uses mtime,

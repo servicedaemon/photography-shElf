@@ -120,19 +120,19 @@ function renderLightbox() {
 
   // Status badge
   const statusHtml =
-    status !== 'unmarked'
-      ? `<div class="lb-status ${status}">${status}</div>`
-      : '';
+    status !== 'unmarked' ? `<div class="lb-status ${status}">${status}</div>` : '';
 
   // Main image
   const pUrl = previewUrl(img.filename);
   const tUrl = thumbUrl(img.filename);
 
   // Bottom bar with marking controls
-  const statusButtons = ['keep', 'favorite', 'reject'].map((s) => {
-    const active = status === s ? ' active' : '';
-    return `<button class="lb-mark-btn lb-mark-${s}${active}" data-status="${s}">${s}</button>`;
-  }).join('');
+  const statusButtons = ['keep', 'favorite', 'reject']
+    .map((s) => {
+      const active = status === s ? ' active' : '';
+      return `<button class="lb-mark-btn lb-mark-${s}${active}" data-status="${s}">${s}</button>`;
+    })
+    .join('');
 
   // Build filmstrip
   let filmstripHtml = '<div class="filmstrip">';
@@ -141,14 +141,14 @@ function renderLightbox() {
     const active = i === currentIndex ? ' active' : '';
     const statusClass = fStatus !== 'unmarked' ? ` ${fStatus}` : '';
     const fThumb = thumbUrl(fi.filename);
-    filmstripHtml += `<img class="filmstrip-thumb${active}${statusClass}" data-index="${i}" src="${fThumb}" alt="${fi.filename}">`;
+    filmstripHtml += `<img class="filmstrip-thumb${active}${statusClass}" data-index="${i}" src="${fThumb}" alt="">`;
   });
   filmstripHtml += '</div>';
 
   lightboxEl.innerHTML = `
     ${statusHtml}
     <div class="lb-image-container">
-      <img id="lb-img" src="${tUrl}" alt="${img.filename}" draggable="false">
+      <img id="lb-img" src="${tUrl}" alt="" draggable="false">
     </div>
     <div class="lb-bottom-bar">
       <div class="lb-info">${img.filename} (${currentIndex + 1}/${images.length})</div>
@@ -212,18 +212,22 @@ function renderLightbox() {
   // Scroll-wheel zoom
   const container = lightboxEl.querySelector('.lb-image-container');
   if (container) {
-    container.addEventListener('wheel', (e) => {
-      e.preventDefault();
-      if (e.deltaY < 0 && !isZoomed) {
-        lbImg.classList.add('zoomed');
-        isZoomed = true;
-        imgOffset = { x: 0, y: 0 };
-      } else if (e.deltaY > 0 && isZoomed) {
-        lbImg.classList.remove('zoomed');
-        lbImg.style.transform = '';
-        isZoomed = false;
-      }
-    }, { passive: false });
+    container.addEventListener(
+      'wheel',
+      (e) => {
+        e.preventDefault();
+        if (e.deltaY < 0 && !isZoomed) {
+          lbImg.classList.add('zoomed');
+          isZoomed = true;
+          imgOffset = { x: 0, y: 0 };
+        } else if (e.deltaY > 0 && isZoomed) {
+          lbImg.classList.remove('zoomed');
+          lbImg.style.transform = '';
+          isZoomed = false;
+        }
+      },
+      { passive: false },
+    );
   }
 
   // Mark buttons

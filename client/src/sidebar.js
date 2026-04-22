@@ -76,7 +76,10 @@ function renderMetadata(filename, data) {
     ['Lens', data.camera?.lens],
   ]
     .filter(([, v]) => v)
-    .map(([l, v]) => `<div class="sidebar-row"><span class="label">${l}</span><span class="value">${v}</span></div>`)
+    .map(
+      ([l, v]) =>
+        `<div class="sidebar-row"><span class="label">${l}</span><span class="value">${v}</span></div>`,
+    )
     .join('');
 
   const exposureRows = [
@@ -89,24 +92,41 @@ function renderMetadata(filename, data) {
     ['White Balance', data.exposure?.whiteBalance],
   ]
     .filter(([, v]) => v != null)
-    .map(([l, v]) => `<div class="sidebar-row"><span class="label">${l}</span><span class="value">${v}</span></div>`)
+    .map(
+      ([l, v]) =>
+        `<div class="sidebar-row"><span class="label">${l}</span><span class="value">${v}</span></div>`,
+    )
     .join('');
 
   const fileRows = [
     ['File', filename],
     ['Size', data.file?.fileSize],
-    ['Dimensions', data.file?.imageWidth && data.file?.imageHeight ? `${data.file.imageWidth} x ${data.file.imageHeight}` : null],
+    [
+      'Dimensions',
+      data.file?.imageWidth && data.file?.imageHeight
+        ? `${data.file.imageWidth} x ${data.file.imageHeight}`
+        : null,
+    ],
     ['Date', data.file?.dateTime],
     ['Color Space', data.file?.colorSpace],
   ]
     .filter(([, v]) => v != null)
-    .map(([l, v]) => `<div class="sidebar-row"><span class="label">${l}</span><span class="value">${v}</span></div>`)
+    .map(
+      ([l, v]) =>
+        `<div class="sidebar-row"><span class="label">${l}</span><span class="value">${v}</span></div>`,
+    )
     .join('');
 
   const keywords = data.tags?.keywords || [];
-  const tagsHtml = keywords.length > 0
-    ? keywords.map((k) => `<span class="tag">${k}<span class="remove-tag" data-tag="${k}">&times;</span></span>`).join('')
-    : '<span style="color: var(--text-muted); font-size: 12px;">No tags</span>';
+  const tagsHtml =
+    keywords.length > 0
+      ? keywords
+          .map(
+            (k) =>
+              `<span class="tag">${k}<span class="remove-tag" data-tag="${k}">&times;</span></span>`,
+          )
+          .join('')
+      : '<span style="color: var(--text-muted); font-size: 12px;">No tags</span>';
 
   sidebarEl.innerHTML = `
     <div class="sidebar-section">
@@ -153,13 +173,15 @@ function renderMetadata(filename, data) {
 
 async function addTag(filename, tag) {
   const sourceParam = folder || source;
+  // `Keywords+` appends to the existing list (exiftool plus-suffix convention).
+  // Plain `Keywords` would REPLACE, which silently wipes previous tags.
   await fetch('/api/metadata/tag', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       filenames: [filename],
       source: sourceParam,
-      tags: { Keywords: [tag] },
+      tags: { 'Keywords+': [tag] },
     }),
   });
 }

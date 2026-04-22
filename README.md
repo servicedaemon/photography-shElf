@@ -54,9 +54,9 @@ It is not a RAW developer — Lightroom (or Capture One, or Photoshop) is. It's 
 
 | Platform | File | Notes |
 |---|---|---|
-| **macOS (Apple Silicon)** | `Shelf-1.0.2-arm64.dmg` | Native for M-series Macs |
-| **macOS (Intel)** | `Shelf-1.0.2-x64.dmg` | For Intel Macs |
-| **Windows 10/11** | `Shelf-Setup-1.0.2.exe` | NSIS installer, x64 |
+| **macOS (Apple Silicon)** | `Shelf-1.0.3-arm64.dmg` | Native for M-series Macs |
+| **macOS (Intel)** | `Shelf-1.0.3-x64.dmg` | For Intel Macs |
+| **Windows 10/11** | `Shelf-Setup-1.0.3.exe` | NSIS installer, x64 |
 
 Latest release: **[GitHub Releases →](https://github.com/servicedaemon/photography-shElf/releases/latest)**
 
@@ -76,7 +76,7 @@ Latest release: **[GitHub Releases →](https://github.com/servicedaemon/photogr
 
 ### Installing on Windows
 
-1. Download `Shelf-Setup-1.0.2.exe` from the releases page.
+1. Download `Shelf-Setup-1.0.3.exe` from the releases page.
 2. Double-click to run the installer. Follow the prompts.
 3. **First launch**: Windows SmartScreen will warn _"Windows protected your PC."_
    Click **More info** → **Run anyway**. _This is needed once because the app isn't code-signed. After the first approval, double-click works forever._
