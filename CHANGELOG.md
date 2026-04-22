@@ -3,6 +3,39 @@
 All notable changes to Shelf will be documented here.
 Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [1.0.1] — 2026-04-22
+
+First rapid-polish release after real-world use. Everything under the hood works; this is the sweep that makes it feel right.
+
+### New
+- **Windows (x64)** installer added to releases — Shelf now ships as a Mac DMG and a Windows NSIS installer from one codebase
+- **Shoot folder navigator** — chip row above the grid showing all of a shoot's sub-folders with counts (Unsorted · Keeps · Favorites · Rejects · Edited); click to jump between them without leaving the app
+- **Empty Rejects** button — moves reject images to system Trash (recoverable), not hard delete
+- **Move to Shoot** — shift+click a range, move photos to another shoot (existing or new) as unsorted
+- **Exit Shoot** button in the header — close a shoot without navigating back through sort flows
+
+### Changed
+- **Sort to Folders unified into one dialog** with a "Create as a new dated shoot instead" checkbox. Default behavior: inside an existing shoot → sort in place (marks route into the shoot's own folders); loose folder / fresh card → create a new dated bundle
+- **Folder picker** now surfaces one row per shoot (with a summary like "12 unsorted · 40 keeps · 8 favorites") rather than exploding every shoot into sub-folder chips
+- **Stage detection** now reflects the shoot's overall state, not the specific sub-folder you're viewing — stage stays stable as you toggle between Keeps / Favorites / Rejects via the nav
+- **Filter row** labeled "Filter" + color-tinted inactive pills to distinguish from shoot-nav chips
+- **Removed redundant header stats row** (per-session per-sub-folder counts conflicted with the filesystem-wide chip counts below)
+- `K` is now the "keep" key (was `P`) — more mnemonic
+
+### Fixed
+- Rotation on DNG / CR3 files now actually updates the visible thumbnail (was writing EXIF but sharp was reading from the pre-rotated embedded preview)
+- Exit Shoot no longer leaks stale grid state (space bar used to open lightbox against the previous shoot)
+- Empty folders show a "nothing here yet" state inside the grid, not the welcome screen
+- Escape reliably closes modals (handler no longer leaks on overlay-click dismissal)
+- Option+click peek preview + Option+Arrow rotate (Cmd+combos were being eaten by the browser / treated as right-click on macOS)
+- Inline-shoot stage detection (`keeps/` sub-folder inside `2026-03 - Name/` now detected correctly)
+- Cross-platform path handling (forward-slash and backslash both work server-side and in client path operations)
+
+### Under the hood
+- Cleanup pass: removed dead CSS selectors from the old picker, tightened stale comments, audited for unused code
+- Accessibility: filter group gets `role="group"` + `aria-label`; focus-visible rings throughout
+- 13 server tests + 9 Playwright E2E tests, all passing
+
 ## [1.0.0] — 2026-04-21
 
 First public release 🌟

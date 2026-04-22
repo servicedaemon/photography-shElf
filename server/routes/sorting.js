@@ -164,27 +164,6 @@ sortingRoutes.post('/undo', (req, res) => {
   });
 });
 
-// List keep folders for review mode
-sortingRoutes.get('/keep-folders', (req, res) => {
-  const config = getConfig();
-  const sortDir = config.sortDir || path.join(os.homedir(), 'Pictures', 'sorted');
-
-  if (!fs.existsSync(sortDir)) return res.json([]);
-
-  try {
-    const folders = fs
-      .readdirSync(sortDir)
-      .filter(
-        (f) => f.startsWith('Keeps -') && fs.statSync(path.join(sortDir, f)).isDirectory(),
-      )
-      .sort()
-      .reverse();
-    res.json(folders);
-  } catch {
-    res.json([]);
-  }
-});
-
 // Mark favorite in a review folder
 sortingRoutes.post('/folder/:folder/mark', (req, res) => {
   const config = getConfig();

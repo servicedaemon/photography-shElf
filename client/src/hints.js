@@ -33,15 +33,20 @@ function addHelpButton() {
 function showCoachMarks() {
   const coach = document.createElement('div');
   coach.className = 'coach-marks';
-  coach.innerHTML = `
-    <div class="coach-marks-inner">
-      <strong>K</strong> keep &middot;
-      <strong>F</strong> favorite &middot;
-      <strong>X</strong> reject &middot;
-      <strong>Space</strong> preview &middot;
-      <strong>?</strong> more
-    </div>
-  `;
+  const hints = [
+    ['K', 'keep'],
+    ['F', 'favorite'],
+    ['X', 'reject'],
+    ['Space', 'preview'],
+    ['?', 'more'],
+  ];
+  hints.forEach(([key, label], i) => {
+    const k = document.createElement('strong');
+    k.textContent = key;
+    coach.appendChild(k);
+    coach.appendChild(document.createTextNode(' ' + label));
+    if (i < hints.length - 1) coach.appendChild(document.createTextNode(' \u00B7 '));
+  });
   document.body.appendChild(coach);
 
   const dismiss = () => {

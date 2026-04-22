@@ -80,7 +80,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Re-render header stats when marks change
   bus.on(EVENTS.IMAGE_MARKED, ({ status }) => {
     renderHeader();
-    // Reactive header elf: favorite sparks joy, reject a confused moment
+    // Reactive header elf: favorite → sparkle, reject → brief confused pose
     if (status === 'favorite') flashElfPose('sparkle', 900);
     else if (status === 'reject') flashElfPose('confused', 700);
   });
@@ -111,9 +111,8 @@ function renderHeader() {
     `;
   } else if (mode === 'card') {
     const images = getImages();
-    // Per-session mark counts (used only to decide whether to show "Deselect All").
-    // The numeric per-status display moved to the action bar + shoot-nav chips
-    // where counts reflect the filesystem state, not just this session.
+    // Used only to gate the "Deselect All" button — the visible counts moved
+    // to the action bar and the shoot-nav chip row.
     let total = 0;
     for (const i of images) {
       const s = i.status || 'unmarked';
@@ -801,7 +800,7 @@ async function handleConvert() {
   const overlay = document.getElementById('modal-overlay');
   while (overlay.firstChild) overlay.removeChild(overlay.firstChild);
   const mDiv = document.createElement('div');
-  mDiv.className = 'modal modal-narrow';
+  mDiv.className = 'modal';
   mDiv.style.textAlign = 'center';
   const elfHost = document.createElement('div');
   elfHost.id = 'convert-elf';
@@ -1032,7 +1031,7 @@ function showSortBridge(moved, keepsPath) {
   const total = Object.values(moved).reduce((a, b) => a + b, 0);
   const parts = [];
   if (moved.keep) parts.push(`${moved.keep} keeps`);
-  if (moved.favorite) parts.push(`${moved.favorite} sparks`);
+  if (moved.favorite) parts.push(`${moved.favorite} favorites`);
   if (moved.reject) parts.push(`${moved.reject} rejects`);
   if (moved.unsorted) parts.push(`${moved.unsorted} unsorted`);
 

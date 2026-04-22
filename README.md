@@ -1,14 +1,19 @@
 # Shelf 🪞
 
-> _A cozy photo darkroom for sorting camera raws._
-
 <p align="center">
-  <img src="electron/icon/source.png" alt="Shelf icon: pixel elf peeking over a camera" width="160"/>
+  <img src="docs/images/icon.png" alt="Shelf icon: a pixel elf peeking over a darkroom camera with an amber lens" width="160"/>
 </p>
 
 <p align="center">
-  <b>Cull fast. Pick heroes. Hand off to Lightroom.</b><br/>
-  <sub>Three stages, dedicated keys, your filesystem is the database.</sub>
+  <b>A cozy photo darkroom for sorting camera raws.</b><br/>
+  <sub>Cull fast · Pick heroes · Hand off to Lightroom · Your filesystem is the database</sub>
+</p>
+
+<p align="center">
+  <a href="https://github.com/servicedaemon/photography-shElf/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/servicedaemon/photography-shElf?style=flat-square&color=e0a82e&label=release"></a>
+  <a href="LICENSE"><img alt="MIT license" src="https://img.shields.io/badge/license-MIT-e0a82e?style=flat-square"></a>
+  <img alt="Platform" src="https://img.shields.io/badge/platform-macOS%20%C2%B7%20Windows-a8bccc?style=flat-square">
+  <img alt="Built with Electron" src="https://img.shields.io/badge/electron-33-9ab58a?style=flat-square">
 </p>
 
 ---
@@ -49,9 +54,9 @@ It is not a RAW developer — Lightroom (or Capture One, or Photoshop) is. It's 
 
 | Platform | File | Notes |
 |---|---|---|
-| **macOS (Apple Silicon)** | `Shelf-1.0.0-arm64.dmg` | Native for M-series Macs |
-| **macOS (Intel)** | `Shelf-1.0.0-x64.dmg` | For Intel Macs |
-| **Windows 10/11** | `Shelf-Setup-1.0.0.exe` | NSIS installer, x64 |
+| **macOS (Apple Silicon)** | `Shelf-1.0.1-arm64.dmg` | Native for M-series Macs |
+| **macOS (Intel)** | `Shelf-1.0.1-x64.dmg` | For Intel Macs |
+| **Windows 10/11** | `Shelf-Setup-1.0.1.exe` | NSIS installer, x64 |
 
 Latest release: **[GitHub Releases →](https://github.com/servicedaemon/photography-shElf/releases/latest)**
 
@@ -65,7 +70,7 @@ Latest release: **[GitHub Releases →](https://github.com/servicedaemon/photogr
 
 ### Installing on Windows
 
-1. Download `Shelf-Setup-1.0.0.exe` from the releases page.
+1. Download `Shelf-Setup-1.0.1.exe` from the releases page.
 2. Double-click to run the installer. Follow the prompts.
 3. **First launch**: Windows SmartScreen will warn _"Windows protected your PC."_
    Click **More info** → **Run anyway**. _This is needed once because the app isn't code-signed. After the first approval, double-click works forever._

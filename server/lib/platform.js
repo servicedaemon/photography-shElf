@@ -46,41 +46,6 @@ export async function pickFolder() {
   }
 }
 
-export async function openInEditor(filenames, source) {
-  const basePath = path.resolve(source);
-  const validPaths = filenames
-    .filter((f) => VALID_FILENAME.test(f) && !f.includes('..'))
-    .map((f) => path.join(basePath, f))
-    .filter((p) => p.startsWith(basePath));
-
-  if (validPaths.length === 0) {
-    throw new Error('No valid files to open');
-  }
-
-  if (process.platform === 'darwin') {
-    // Try Adobe Photoshop first, fall back to default app
-    try {
-      await new Promise((resolve, reject) => {
-        execFile(
-          'open',
-          ['-a', 'Adobe Photoshop', ...validPaths],
-          (err) => (err ? reject(err) : resolve()),
-        );
-      });
-    } catch {
-      // Fall back to default app for each file
-      for (const p of validPaths) {
-        await open(p);
-      }
-    }
-  } else {
-    // Windows/Linux: use the `open` package to open with default app
-    for (const p of validPaths) {
-      await open(p);
-    }
-  }
-}
-
 export async function openFolderInLightroom(folderPath) {
   const resolved = path.resolve(folderPath);
 

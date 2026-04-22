@@ -3,7 +3,7 @@ import path from 'path';
 import fs from 'fs';
 import { getConfig, setConfig } from '../lib/state.js';
 import { detectCameraDrives } from '../lib/drives.js';
-import { openInEditor, pickFolder, openFolderInLightroom } from '../lib/platform.js';
+import { pickFolder, openFolderInLightroom } from '../lib/platform.js';
 
 export const configRoutes = Router();
 
@@ -195,17 +195,3 @@ configRoutes.post('/open-in-lightroom', async (req, res) => {
   }
 });
 
-// Open files in external editor
-configRoutes.post('/open-editor', async (req, res) => {
-  const { filenames, source } = req.body;
-  if (!Array.isArray(filenames) || !source) {
-    return res.status(400).json({ error: 'filenames and source required' });
-  }
-
-  try {
-    await openInEditor(filenames, source);
-    res.json({ ok: true });
-  } catch (e) {
-    res.status(500).json({ error: 'Failed to open editor: ' + e.message });
-  }
-});
