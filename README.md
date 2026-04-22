@@ -53,7 +53,7 @@ It is not a RAW developer — Lightroom (or Capture One, or Photoshop) is. It's 
 | **macOS (Intel)** | Coming soon | Build from source for now |
 | **Windows** | Coming soon | Build from source for now |
 
-Latest release: **[GitHub Releases →](https://github.com/avabellpepper/shelf/releases/latest)**
+Latest release: **[GitHub Releases →](https://github.com/servicedaemon/photography-shElf/releases/latest)**
 
 ### Installing on macOS
 
@@ -124,7 +124,7 @@ Total cull time for a 400-photo shoot: **~15 minutes** at a comfortable pace.
 Requires **Node.js 20+** and **dnglab** (`brew install dnglab`).
 
 ```bash
-git clone https://github.com/avabellpepper/shelf.git
+git clone https://github.com/servicedaemon/photography-shElf.git
 cd shelf
 npm install
 
