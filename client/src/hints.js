@@ -35,7 +35,7 @@ function showCoachMarks() {
   coach.className = 'coach-marks';
   coach.innerHTML = `
     <div class="coach-marks-inner">
-      <strong>P</strong> keep &middot;
+      <strong>K</strong> keep &middot;
       <strong>F</strong> favorite &middot;
       <strong>X</strong> reject &middot;
       <strong>Space</strong> preview &middot;
@@ -51,5 +51,5 @@ function showCoachMarks() {
   };
   const dismissOnKey = () => dismiss();
   document.addEventListener('keydown', dismissOnKey);
-  setTimeout(dismiss, 5000);
+  setTimeout(dismiss, 8500);
 }

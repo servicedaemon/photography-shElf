@@ -1,7 +1,7 @@
 // Selection + marking logic
 // Click: toggle keep; Cmd+click: toggle reject; Double-click: toggle favorite
-// Keys: P=keep, F=favorite, X=reject, U=unmark (each advances to next unmarked)
-// Shift+click: create visual range selection; P/F/X/U apply to whole selection
+// Keys: K=keep, F=favorite, X=reject, U=unmark (each advances to next unmarked)
+// Shift+click: create visual range selection; K/F/X/U apply to whole selection
 
 import { bus, EVENTS } from './events.js';
 import {

@@ -91,8 +91,8 @@ function handleKeydown(e) {
       }
       break;
 
-    case 'p':
-    case 'P':
+    case 'k':
+    case 'K':
       e.preventDefault();
       keepAndAdvance();
       break;
@@ -200,7 +200,7 @@ function showShortcutsOverlay() {
       <h2>Keyboard Shortcuts</h2>
       <div class="shortcut-group">
         <h3>Marking</h3>
-        <div class="shortcut-row"><span class="desc">Keep</span><span class="keys">P</span></div>
+        <div class="shortcut-row"><span class="desc">Keep</span><span class="keys">K</span></div>
         <div class="shortcut-row"><span class="desc">Favorite</span><span class="keys">F</span></div>
         <div class="shortcut-row"><span class="desc">Reject</span><span class="keys">X</span></div>
         <div class="shortcut-row"><span class="desc">Unmark</span><span class="keys">U</span></div>

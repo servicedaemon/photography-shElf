@@ -27,7 +27,7 @@ let elfResetTimer = null;
 function stageTooltip(stage) {
   switch (stage) {
     case 'CULL':
-      return 'CULL — first pass. Decide keep / favorite / reject on every photo. Press P, F, X, U to mark.';
+      return 'CULL — first pass. Decide keep / favorite / reject on every photo. Press K, F, X, U to mark.';
     case 'HEROES':
       return 'HEROES — second pass. Pick the best shots from your keeps with F, then Promote to Favorites.';
     case 'FINAL':
