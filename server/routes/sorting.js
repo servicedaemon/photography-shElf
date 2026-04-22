@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import path from 'path';
+import os from 'os';
 import fs from 'fs';
 import { getState, setState, pushUndo, popUndo, getConfig } from '../lib/state.js';
 
@@ -82,7 +83,7 @@ sortingRoutes.post('/sort', async (req, res) => {
   if (!safeName) return res.status(400).json({ error: 'Invalid name' });
 
   const config = getConfig();
-  const sortDir = config.sortDir || path.join(process.env.HOME, 'Pictures/sorted');
+  const sortDir = config.sortDir || path.join(os.homedir(), 'Pictures', 'sorted');
 
   const now = new Date();
   const dateStr = String(now.getMonth() + 1).padStart(2, '0') + '-' + now.getFullYear();
@@ -166,7 +167,7 @@ sortingRoutes.post('/undo', (req, res) => {
 // List keep folders for review mode
 sortingRoutes.get('/keep-folders', (req, res) => {
   const config = getConfig();
-  const sortDir = config.sortDir || path.join(process.env.HOME, 'Pictures/sorted');
+  const sortDir = config.sortDir || path.join(os.homedir(), 'Pictures', 'sorted');
 
   if (!fs.existsSync(sortDir)) return res.json([]);
 
@@ -187,7 +188,7 @@ sortingRoutes.get('/keep-folders', (req, res) => {
 // Mark favorite in a review folder
 sortingRoutes.post('/folder/:folder/mark', (req, res) => {
   const config = getConfig();
-  const sortDir = config.sortDir || path.join(process.env.HOME, 'Pictures/sorted');
+  const sortDir = config.sortDir || path.join(os.homedir(), 'Pictures', 'sorted');
   const folderPath = path.join(sortDir, req.params.folder);
 
   if (!folderPath.startsWith(sortDir) || !fs.existsSync(folderPath)) {
@@ -226,7 +227,7 @@ sortingRoutes.post('/folder/:folder/mark', (req, res) => {
 // Save favorites to subfolder
 sortingRoutes.post('/folder/:folder/save-favorites', (req, res) => {
   const config = getConfig();
-  const sortDir = config.sortDir || path.join(process.env.HOME, 'Pictures/sorted');
+  const sortDir = config.sortDir || path.join(os.homedir(), 'Pictures', 'sorted');
   const folderPath = path.join(sortDir, req.params.folder);
 
   if (!folderPath.startsWith(sortDir) || !fs.existsSync(folderPath)) {

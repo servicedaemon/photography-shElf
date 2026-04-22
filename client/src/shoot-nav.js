@@ -203,10 +203,12 @@ async function emptyRejects(rejectSibling) {
 
 // Truncate an absolute path to a friendlier form (~/... when inside $HOME).
 function friendlyPath(p) {
-  const home = (typeof process !== 'undefined' && process.env?.HOME) || '';
-  // Browser has no process.env; fall back to showing the last two segments.
+  // Electron exposes process.env to the renderer. Support both HOME (macOS/Linux)
+  // and USERPROFILE (Windows). In a pure browser these are undefined.
+  const env = (typeof process !== 'undefined' && process.env) || {};
+  const home = env.HOME || env.USERPROFILE || '';
   if (home && p.startsWith(home)) return '~' + p.slice(home.length);
-  const parts = p.split('/');
+  const parts = p.split(/[/\\]/);
   return parts.length > 3 ? '…/' + parts.slice(-3).join('/') : p;
 }
 

@@ -208,7 +208,7 @@ function showEmptyState() {
       <h3 style="margin-top:32px;color:var(--tan);font-size:14px">Recent shoots</h3>
       ${list.map(p => `
         <button class="folder-btn recent-btn" data-path="${p}" style="max-width:600px;margin:4px auto;display:block;text-align:left">
-          ${p.split('/').slice(-2).join('/')}
+          ${p.split(/[/\\]/).slice(-2).join('/')}
         </button>
       `).join('')}
     `;
@@ -315,7 +315,7 @@ async function selectDirectory() {
 
 function showShootPicker(listing) {
   const overlay = document.getElementById('modal-overlay');
-  const dirName = listing.path.split('/').pop() || listing.path;
+  const dirName = listing.path.split(/[/\\]/).pop() || listing.path;
 
   let html = `<div class="modal"><h2>${dirName}</h2>`;
 
@@ -394,7 +394,7 @@ function showDrivePicker(drives) {
 
   for (const drive of drives) {
     for (const dir of drive.imageDirs) {
-      const dirName = dir.split('/').pop();
+      const dirName = dir.split(/[/\\]/).pop();
       html += `<button class="folder-btn" data-dir="${dir}">${drive.name} / ${dirName}</button>`;
     }
   }
@@ -631,7 +631,8 @@ async function handleConvert() {
 
     if (!res.ok) {
       if (res.status === 501) {
-        showToast('dnglab is not installed. Run: cargo install dnglab', 'error');
+        // Use the hint the server sends — it's OS-aware.
+        showToast(data.hint || data.error || 'dnglab is not installed', 'error');
       } else {
         showToast(data.error || 'Conversion failed', 'error');
       }
@@ -660,7 +661,7 @@ async function handleConvert() {
 
 async function handleOpenEditor() {
   // Determine the Favorites folder path
-  const favoritesPath = source.endsWith('/Favorites')
+  const favoritesPath = /[/\\]Favorites$/.test(source)
     ? source
     : source + '/Favorites';
 
@@ -699,7 +700,7 @@ async function handlePromoteFavorites() {
   if (!confirmed) return;
 
   // The current source is a Keeps folder; extract folder name for the API
-  const folderName = source.split('/').pop();
+  const folderName = source.split(/[/\\]/).pop();
 
   try {
     // First, persist favorites to the .favorites-state.json file (parallel)
@@ -763,7 +764,7 @@ async function handleMoveToShoot() {
       showToast(data.error || 'Move failed', 'error');
       return;
     }
-    showToast(`Moved ${data.moved} image${data.moved !== 1 ? 's' : ''} to ${dest.newShootName || dest.existingPath?.split('/').pop() || 'shoot'}`, 'success');
+    showToast(`Moved ${data.moved} image${data.moved !== 1 ? 's' : ''} to ${dest.newShootName || dest.existingPath?.split(/[/\\]/).pop() || 'shoot'}`, 'success');
     if (data.errors && data.errors.length) {
       showToast(`${data.errors.length} files had errors`, 'error');
     }

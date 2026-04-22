@@ -30,7 +30,7 @@ function recentSubmenu(recent, mainWindow) {
     return [{ label: 'No Recent Shoots', enabled: false }];
   }
   return recent.map(p => ({
-    label: p.split('/').slice(-2).join('/'),
+    label: p.split(/[/\\]/).slice(-2).join('/'),
     click: () => {
       mainWindow.webContents.executeJavaScript(
         `window.dispatchEvent(new CustomEvent('shelf:load-folder', { detail: { path: ${JSON.stringify(p)} } }))`

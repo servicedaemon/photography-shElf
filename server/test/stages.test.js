@@ -25,3 +25,11 @@ test('detectStage: empty path defaults to CULL', () => {
 test('detectStage: trailing slash does not break detection', () => {
   assert.equal(detectStage('/some/Keeps - 04-2026 - X/'), 'HEROES');
 });
+
+test('detectStage: Windows trailing backslash does not break detection', () => {
+  assert.equal(detectStage('C:\\Users\\ava\\Keeps - 04-2026 - X\\'), 'HEROES');
+});
+
+test('detectStage: Windows Favorites subfolder is FINAL', () => {
+  assert.equal(detectStage('C:\\Users\\ava\\Keeps - 04-2026 - X\\Favorites'), 'FINAL');
+});

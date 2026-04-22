@@ -54,7 +54,7 @@ async function checkFavoritesFolder() {
     hasFavoritesFolder = false;
     return;
   }
-  if (currentSource.endsWith('/Favorites')) {
+  if (/[/\\]Favorites$/.test(currentSource)) {
     hasFavoritesFolder = true;
     updateActions();
     return;

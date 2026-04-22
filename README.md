@@ -50,8 +50,8 @@ It is not a RAW developer — Lightroom (or Capture One, or Photoshop) is. It's 
 | Platform | File | Notes |
 |---|---|---|
 | **macOS (Apple Silicon)** | `Shelf-1.0.0-arm64.dmg` | Native for M-series Macs |
-| **macOS (Intel)** | Coming soon | Build from source for now |
-| **Windows** | Coming soon | Build from source for now |
+| **macOS (Intel)** | `Shelf-1.0.0-x64.dmg` | For Intel Macs |
+| **Windows 10/11** | `Shelf-Setup-1.0.0.exe` | NSIS installer, x64 |
 
 Latest release: **[GitHub Releases →](https://github.com/servicedaemon/photography-shElf/releases/latest)**
 
@@ -62,6 +62,18 @@ Latest release: **[GitHub Releases →](https://github.com/servicedaemon/photogr
 3. **First launch**: right-click Shelf.app → **Open** → confirm.
    _This is needed once because the app isn't code-signed (no Apple Developer ID). After the first approval, double-click works forever._
 4. Optional for DNG conversion: `brew install dnglab` — only needed if you shoot CR3/CR2/ARW/NEF/RAF and want Lightroom-compatible DNGs.
+
+### Installing on Windows
+
+1. Download `Shelf-Setup-1.0.0.exe` from the releases page.
+2. Double-click to run the installer. Follow the prompts.
+3. **First launch**: Windows SmartScreen will warn _"Windows protected your PC."_
+   Click **More info** → **Run anyway**. _This is needed once because the app isn't code-signed. After the first approval, double-click works forever._
+4. Optional for DNG conversion: `choco install dnglab` (via [Chocolatey](https://chocolatey.org)) or download the binary from [dnglab releases](https://github.com/dnglab/dnglab/releases) and put it on your PATH.
+
+**Windows known limitations:**
+- **"Edit in Lightroom"** opens the Favorites folder in File Explorer instead of Lightroom directly. From there, drag the photos into Lightroom or use Lightroom's File → Add Photos. (On macOS, Lightroom auto-opens with the folder.)
+- Config lives at `%APPDATA%\shelf\config.json` (not `~/.shelf`).
 
 ---
 
@@ -180,6 +192,15 @@ Shelf looks in `/opt/homebrew/bin/dnglab` (Apple Silicon) and `/usr/local/bin/dn
 
 ### Lightroom says "this folder doesn't contain any editable media"
 Your Lightroom CC version doesn't recognize your camera's raw format. Use Shelf's **Convert to DNG** button — DNG is Adobe's universal raw format and will always open. (Especially common with brand-new camera bodies released within the last year.)
+
+### (Windows) Thumbnails don't generate / EXIF reads silently fail
+`exiftool-vendored` extracts a bundled executable to your temp directory on first run. Windows Defender occasionally flags this extraction and blocks it. If thumbnail generation isn't working:
+
+1. Open **Windows Security** → **Virus & threat protection** → **Manage settings** → **Exclusions**
+2. Add an exclusion for `%TEMP%\exiftool-vendored*` (or the folder Defender quarantined)
+3. Relaunch Shelf
+
+Symptom: photos load as placeholders/skeletons but never resolve to real thumbnails.
 
 ### Window opens off-screen after a display change
 Disconnect → reconnect external displays. Shelf detects the change and clamps the window to your primary display on next launch. If it persists, delete `~/.shelf/config.json`.

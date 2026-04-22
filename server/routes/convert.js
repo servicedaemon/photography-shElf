@@ -11,21 +11,36 @@ export const convertRoutes = Router();
 
 const RAW_EXTENSIONS = /\.(cr3|cr2|arw|nef|raf)$/i;
 
-const DNGLAB_CANDIDATES = [
-  '/opt/homebrew/bin/dnglab',     // macOS Apple Silicon
-  '/usr/local/bin/dnglab',        // macOS Intel
-  '/usr/bin/dnglab',              // Linux-style
-  'C:\\ProgramData\\chocolatey\\bin\\dnglab.exe', // Windows Chocolatey
-];
+function dnglabCandidates() {
+  const list = [
+    '/opt/homebrew/bin/dnglab',     // macOS Apple Silicon
+    '/usr/local/bin/dnglab',        // macOS Intel
+    '/usr/bin/dnglab',              // Linux-style
+  ];
+  if (process.platform === 'win32') {
+    const home = process.env.USERPROFILE || '';
+    const localAppData = process.env.LOCALAPPDATA || '';
+    list.push(
+      'C:\\ProgramData\\chocolatey\\bin\\dnglab.exe',
+      'C:\\Program Files\\dnglab\\dnglab.exe',
+      home ? path.join(home, '.cargo', 'bin', 'dnglab.exe') : '',
+      localAppData ? path.join(localAppData, 'Programs', 'dnglab', 'dnglab.exe') : '',
+    );
+  }
+  return list.filter(Boolean);
+}
 
 async function findDnglab() {
-  for (const p of DNGLAB_CANDIDATES) {
+  for (const p of dnglabCandidates()) {
     if (fs.existsSync(p)) return p;
   }
-  // Last resort: try `which` (dev mode only, inherits shell PATH)
+  // Last resort: ask the shell (dev mode, inherits PATH).
+  // Use `where` on Windows, `which` on Unix.
+  const finder = process.platform === 'win32' ? 'where' : 'which';
   try {
-    const { stdout } = await execFileAsync('which', ['dnglab']);
-    const p = stdout.trim();
+    const { stdout } = await execFileAsync(finder, ['dnglab']);
+    // `where` on Windows may return multiple lines; take the first.
+    const p = stdout.split(/\r?\n/)[0].trim();
     return p || null;
   } catch {
     return null;
@@ -51,7 +66,11 @@ convertRoutes.post('/convert', async (req, res) => {
   if (!dnglabPath) {
     return res.status(501).json({
       error: 'dnglab is not installed',
-      hint: 'Install with: cargo install dnglab',
+      hint: process.platform === 'win32'
+        ? 'Install via Chocolatey: choco install dnglab (or download from https://github.com/dnglab/dnglab/releases)'
+        : process.platform === 'darwin'
+          ? 'Install via Homebrew: brew install dnglab'
+          : 'Install from https://github.com/dnglab/dnglab/releases',
     });
   }
 

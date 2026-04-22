@@ -1,7 +1,7 @@
 name: Release
 
-# Build macOS DMGs when a version tag is pushed and upload them to the
-# corresponding GitHub Release. Triggered by tags matching v*.* (e.g. v1.0.0).
+# Build cross-platform desktop installers when a version tag is pushed and
+# upload them to the corresponding GitHub Release. Tags match v*.*.* (e.g. v1.0.0).
 on:
   push:
     tags:
@@ -48,8 +48,6 @@ jobs:
         run: npm run build
 
       - name: Package DMG
-        # ARCH comes from our matrix (trusted). Exposed via env to avoid
-        # any ${{ … }} expansion directly in a shell command.
         env:
           ARCH: ${{ matrix.arch }}
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
@@ -65,9 +63,48 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
+  build-windows:
+    name: Build Windows (x64)
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate app icon
+        run: node scripts/build-icon.mjs
+
+      - name: Build client
+        run: npm run build
+
+      - name: Package NSIS installer
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+        run: npx electron-builder --win --x64 --publish never
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: shelf-windows-x64
+          path: |
+            dist-electron/*.exe
+            dist-electron/*.exe.blockmap
+          if-no-files-found: error
+          retention-days: 14
+
   publish:
-    name: Attach DMGs to Release
-    needs: build-macos
+    name: Attach artifacts to Release
+    needs:
+      - build-macos
+      - build-windows
     runs-on: ubuntu-latest
     steps:
       - name: Download all artifacts
@@ -100,3 +137,5 @@ jobs:
           files: |
             artifacts/**/*.dmg
             artifacts/**/*.dmg.blockmap
+            artifacts/**/*.exe
+            artifacts/**/*.exe.blockmap
