@@ -1,0 +1,102 @@
+name: Release
+
+# Build macOS DMGs when a version tag is pushed and upload them to the
+# corresponding GitHub Release. Triggered by tags matching v*.* (e.g. v1.0.0).
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Manual tag to release (e.g. v1.0.0)'
+        required: true
+
+permissions:
+  contents: write  # needed to create/update a GitHub Release
+
+jobs:
+  build-macos:
+    name: Build macOS (${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: arm64
+            runner: macos-14       # Apple Silicon
+          - arch: x64
+            runner: macos-13       # Intel
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate app icon
+        run: node scripts/build-icon.mjs
+
+      - name: Build client
+        run: npm run build
+
+      - name: Package DMG
+        # ARCH comes from our matrix (trusted). Exposed via env to avoid
+        # any ${{ … }} expansion directly in a shell command.
+        env:
+          ARCH: ${{ matrix.arch }}
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+        run: npx electron-builder --mac --"$ARCH" --publish never
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: shelf-macos-${{ matrix.arch }}
+          path: |
+            dist-electron/*.dmg
+            dist-electron/*.dmg.blockmap
+          if-no-files-found: error
+          retention-days: 14
+
+  publish:
+    name: Attach DMGs to Release
+    needs: build-macos
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: List artifacts
+        run: find artifacts -type f
+
+      - name: Resolve release tag
+        id: tag
+        env:
+          REF_TYPE: ${{ github.ref_type }}
+          REF_NAME: ${{ github.ref_name }}
+          INPUT_TAG: ${{ inputs.tag }}
+        run: |
+          if [ "$REF_TYPE" = "tag" ]; then
+            echo "name=$REF_NAME" >> "$GITHUB_OUTPUT"
+          else
+            echo "name=$INPUT_TAG" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create or update GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.tag.outputs.name }}
+          draft: true
+          generate_release_notes: true
+          files: |
+            artifacts/**/*.dmg
+            artifacts/**/*.dmg.blockmap
