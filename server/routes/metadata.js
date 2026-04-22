@@ -19,6 +19,13 @@ function toArray(v) {
   return Array.isArray(v) ? v : [v];
 }
 
+// exiftool-vendored returns date tags as ExifDateTime objects, not strings.
+// Coerce via String() so the client can render them directly — toString()
+// produces "YYYY:MM:DD HH:MM:SS±ZZ:ZZ".
+export function formatDateTime(v) {
+  return v == null ? null : typeof v === 'string' ? v : String(v);
+}
+
 // Read EXIF metadata for a single file
 metadataRoutes.get('/metadata/:filename', async (req, res) => {
   const { filename } = req.params;
@@ -60,7 +67,7 @@ metadataRoutes.get('/metadata/:filename', async (req, res) => {
         fileSize: tags.FileSize,
         imageWidth: tags.ImageWidth,
         imageHeight: tags.ImageHeight,
-        dateTime: tags.DateTimeOriginal || tags.CreateDate,
+        dateTime: formatDateTime(tags.DateTimeOriginal || tags.CreateDate),
         colorSpace: tags.ColorSpace,
       },
       tags: {
