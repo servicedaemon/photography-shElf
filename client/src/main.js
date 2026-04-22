@@ -11,7 +11,7 @@ import { initActions } from './actions.js';
 import { initUndo, showToast } from './undo.js';
 import { initStage, getStage } from './stage.js';
 import { createElf } from './elf.js';
-import { setThumbSize } from './theme.js';
+import { setThumbSize, setTheme, getTheme } from './theme.js';
 import { initMarkQueue } from './mark-queue.js';
 import { initIngest, pushRecentShoot, getRecentShoots } from './ingest.js';
 import { initHints } from './hints.js';
@@ -48,7 +48,10 @@ function flashElfPose(pose, duration = 1400, baseline = 'peeking') {
 }
 
 // Init all modules
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
+  // Apply persisted theme FIRST so the first render uses the right palette.
+  await loadSavedTheme();
+
   initGrid();
   initLightbox();
   initSelection();
@@ -98,6 +101,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // --- Header ---
 
+// Segmented theme toggle HTML. Three glyph-only buttons: D (dark), G (grey),
+// L (light). The active one is highlighted; clicks cycle the theme.
+function themeToggleHtml() {
+  const current = getTheme();
+  const mk = (t, label, title) =>
+    `<button class="tt-btn${t === current ? ' active' : ''}" data-theme="${t}" title="${title}">${label}</button>`;
+  return `
+    <div class="theme-toggle" role="group" aria-label="Theme">
+      ${mk('dark', 'D', 'Dark — default darkroom')}
+      ${mk('grey', 'G', 'Grey — neutral 18% mid-tone (best for white-heavy photos)')}
+      ${mk('light', 'L', 'Light — warm off-white')}
+    </div>
+  `;
+}
+
 function renderHeader() {
   const header = document.getElementById('header');
 
@@ -106,6 +124,7 @@ function renderHeader() {
       <div class="elf-corner" id="header-elf"></div>
       <h1>Shelf</h1>
       <div class="header-spacer"></div>
+      ${themeToggleHtml()}
       <button class="btn btn-primary" id="btn-scan-camera">Scan for Camera</button>
       <button class="btn btn-gold" id="btn-select-dir">Select Directory</button>
     `;
@@ -128,6 +147,7 @@ function renderHeader() {
         <label>Size</label>
         <input type="range" min="150" max="500" value="280" id="thumb-slider">
       </div>
+      ${themeToggleHtml()}
       ${hasMarks ? '<button class="btn btn-muted" id="btn-deselect-all">Deselect All</button>' : ''}
       <button class="btn btn-muted" id="btn-exit-shoot" title="Close this shoot and return to the welcome screen">Exit Shoot</button>
       <button class="btn btn-muted" id="btn-scan-camera">Scan Card</button>
@@ -161,6 +181,39 @@ function bindHeaderButtons() {
     renderHeader();
   });
   document.getElementById('btn-exit-shoot')?.addEventListener('click', exitShoot);
+
+  // Theme toggle — instant swap, persist to server config
+  document.querySelectorAll('.theme-toggle .tt-btn').forEach((btn) => {
+    btn.addEventListener('click', () => applyTheme(btn.dataset.theme));
+  });
+}
+
+async function applyTheme(theme) {
+  setTheme(theme);
+  // Re-render header to update the active pill state
+  renderHeader();
+  // Persist. Fire-and-forget; a transient network error shouldn't roll back
+  // the visible theme swap — user will see the change, it just won't persist.
+  try {
+    await fetch('/api/config', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ theme }),
+    });
+  } catch {
+    // ignored — visible theme stays applied this session
+  }
+}
+
+// Apply the user's saved theme as early as possible — before first render.
+async function loadSavedTheme() {
+  try {
+    const res = await fetch('/api/config');
+    const config = await res.json();
+    if (config && config.theme) setTheme(config.theme);
+  } catch {
+    // config unreachable — stay on default dark
+  }
 }
 
 function exitShoot() {

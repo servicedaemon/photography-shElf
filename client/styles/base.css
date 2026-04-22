@@ -16,25 +16,25 @@
   --bg-sunken: #060608;
 
   /* Accents — amber safelight & photographic palette */
-  --amber: #e0a82e;         /* primary warm — the safelight */
-  --amber-soft: #f2cc7a;    /* muted warm highlight */
-  --amber-deep: #8c6420;    /* deep amber for subtle states */
-  --tan: #c4b098;           /* warm neutral text */
-  --ink: #eaeaea;           /* primary text */
-  --ink-dim: #888892;       /* secondary text */
-  --ink-faint: #4a4a54;     /* tertiary / placeholder */
-  --ink-whisper: #2a2a32;   /* hairlines, disabled */
+  --amber: #e0a82e; /* primary warm — the safelight */
+  --amber-soft: #f2cc7a; /* muted warm highlight */
+  --amber-deep: #8c6420; /* deep amber for subtle states */
+  --tan: #c4b098; /* warm neutral text */
+  --ink: #eaeaea; /* primary text */
+  --ink-dim: #888892; /* secondary text */
+  --ink-faint: #4a4a54; /* tertiary / placeholder */
+  --ink-whisper: #2a2a32; /* hairlines, disabled */
 
   /* Status — photographic */
-  --blue: #a8bccc;          /* keep — cool steel (WCAG AA on dark) */
-  --blue-deep: #2a3a4e;     /* keep bg */
+  --blue: #a8bccc; /* keep — cool steel (WCAG AA on dark) */
+  --blue-deep: #2a3a4e; /* keep bg */
   --blue-whisper: rgba(168, 188, 204, 0.12);
-  --rose: #c08484;          /* reject — muted rose */
+  --rose: #c08484; /* reject — muted rose */
   --rose-deep: #3e1f1f;
   --rose-whisper: rgba(192, 132, 132, 0.12);
-  --gold: var(--amber);     /* favorite — same as primary */
+  --gold: var(--amber); /* favorite — same as primary */
   --gold-whisper: rgba(224, 168, 46, 0.12);
-  --moss: #9ab58a;          /* final stage — sage green */
+  --moss: #9ab58a; /* final stage — sage green */
 
   /* Status — derived (backwards compat with existing class names) */
   --keep-border: var(--blue);
@@ -43,15 +43,37 @@
   --reject-glow: var(--rose-whisper);
   --favorite-border: var(--gold);
   --favorite-glow: var(--gold-whisper);
-  --red: var(--rose);         /* compat */
+  --red: var(--rose); /* compat */
   --blue-bg: var(--blue-deep);
   --text: var(--ink);
   --text-muted: var(--ink-dim);
 
   /* Lines */
   --hairline: rgba(255, 255, 255, 0.05);
-  --hairline-stronger: rgba(255, 255, 255, 0.10);
+  --hairline-stronger: rgba(255, 255, 255, 0.1);
   --hairline-boldest: rgba(255, 255, 255, 0.18);
+
+  /* Theme-aware surfaces (these flip in grey/light themes).
+     Each is a prebaked rgba value rather than var(--bg) + opacity because
+     backdrop-filter:blur layers need explicit translucency. */
+  --bg-glass-strong: rgba(10, 10, 12, 0.92); /* action bar, coach marks */
+  --bg-glass: rgba(10, 10, 12, 0.82); /* header */
+  --bg-glass-soft: rgba(10, 10, 12, 0.6); /* shoot-nav */
+  --bg-toast: rgba(18, 18, 22, 0.94);
+  --bg-overlay: rgba(6, 6, 8, 0.88); /* shortcuts overlay */
+  --bg-modal-overlay: rgba(6, 6, 8, 0.72);
+  --bg-lightbox: #000; /* kept pure for cinematic photo view, overridden on light */
+  --badge-text: #000; /* sits on always-opaque color badges */
+
+  /* Scrollbar + grain — theme-aware */
+  --scrollbar-thumb: rgba(255, 255, 255, 0.08);
+  --scrollbar-thumb-hover: rgba(224, 168, 46, 0.25);
+  --scanline-color: rgba(255, 255, 255, 0.4);
+  --scanline-opacity: 0.025;
+
+  /* Atmospheric radial gradients on body */
+  --atmos-amber: rgba(224, 168, 46, 0.035);
+  --atmos-blue: rgba(140, 160, 184, 0.018);
 
   /* Sizing */
   --thumb-size: 280px;
@@ -64,7 +86,7 @@
   /* Typography */
   --font-display: 'Archivo Narrow', 'Helvetica Neue Condensed', 'Arial Narrow', sans-serif;
   --font-mono: 'JetBrains Mono', 'Monaspace Neon', 'SF Mono', 'Cascadia Code', monospace;
-  --font-sans: var(--font-mono);  /* entire UI is mono — tool aesthetic */
+  --font-sans: var(--font-mono); /* entire UI is mono — tool aesthetic */
 
   /* Motion */
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
@@ -95,15 +117,17 @@ body {
   color: var(--ink);
   font-family: var(--font-sans);
   font-size: 13px;
-  font-feature-settings: 'tnum' 1, 'ss02' 1;
+  font-feature-settings:
+    'tnum' 1,
+    'ss02' 1;
   line-height: 1.55;
   overflow-y: auto;
   min-height: 100vh;
 
   /* Subtle darkroom atmosphere — amber radial whisper at top */
   background-image:
-    radial-gradient(ellipse 1200px 600px at 50% -100px, rgba(224, 168, 46, 0.035), transparent 60%),
-    radial-gradient(ellipse 800px 400px at 20% 100%, rgba(140, 160, 184, 0.018), transparent 70%);
+    radial-gradient(ellipse 1200px 600px at 50% -100px, var(--atmos-amber), transparent 60%),
+    radial-gradient(ellipse 800px 400px at 20% 100%, var(--atmos-blue), transparent 70%);
   background-attachment: fixed;
 }
 
@@ -114,20 +138,22 @@ body::before {
   inset: 0;
   pointer-events: none;
   z-index: 50;
-  opacity: 0.025;
+  opacity: var(--scanline-opacity);
   background-image: repeating-linear-gradient(
     0deg,
     transparent 0px,
     transparent 1px,
-    rgba(255, 255, 255, 0.4) 1px,
-    rgba(255, 255, 255, 0.4) 2px
+    var(--scanline-color) 1px,
+    var(--scanline-color) 2px
   );
   mix-blend-mode: overlay;
 }
 
 /* ─── Typography ─────────────────────────────────────────────────────── */
 
-h1, h2, h3 {
+h1,
+h2,
+h3 {
   font-family: var(--font-display);
   font-weight: 600;
   letter-spacing: 0.02em;
@@ -141,7 +167,7 @@ h1, h2, h3 {
   position: sticky;
   top: 0;
   z-index: 100;
-  background: rgba(10, 10, 12, 0.82);
+  background: var(--bg-glass);
   backdrop-filter: blur(20px) saturate(140%);
   -webkit-backdrop-filter: blur(20px) saturate(140%);
   border-bottom: 1px solid var(--hairline);
@@ -190,11 +216,12 @@ h1, h2, h3 {
   letter-spacing: 0.05em;
   text-transform: uppercase;
   cursor: pointer;
-  transition: background var(--transition-fast),
-              border-color var(--transition-fast),
-              color var(--transition-fast),
-              box-shadow var(--transition-fast),
-              transform 0.05s ease;
+  transition:
+    background var(--transition-fast),
+    border-color var(--transition-fast),
+    color var(--transition-fast),
+    box-shadow var(--transition-fast),
+    transform 0.05s ease;
   white-space: nowrap;
   user-select: none;
   position: relative;
@@ -205,7 +232,9 @@ h1, h2, h3 {
   border-color: var(--hairline-boldest);
 }
 
-.btn:active { transform: translateY(1px); }
+.btn:active {
+  transform: translateY(1px);
+}
 
 .btn-primary {
   border-color: rgba(224, 168, 46, 0.55);
@@ -215,8 +244,9 @@ h1, h2, h3 {
 .btn-primary:hover {
   background: rgba(224, 168, 46, 0.15);
   border-color: var(--amber);
-  box-shadow: 0 0 0 1px rgba(224, 168, 46, 0.2),
-              0 4px 20px rgba(224, 168, 46, 0.12);
+  box-shadow:
+    0 0 0 1px rgba(224, 168, 46, 0.2),
+    0 4px 20px rgba(224, 168, 46, 0.12);
 }
 
 .btn-gold {
@@ -254,7 +284,7 @@ h1, h2, h3 {
   gap: 8px;
 }
 
-.thumb-slider input[type="range"] {
+.thumb-slider input[type='range'] {
   width: 90px;
   accent-color: var(--amber);
   cursor: pointer;
@@ -279,7 +309,9 @@ h1, h2, h3 {
 
 /* ─── Focus rings (keyboard) ─────────────────────────────────────────── */
 
-:focus { outline: none; }
+:focus {
+  outline: none;
+}
 
 :focus-visible {
   outline: 2px solid var(--amber);
@@ -303,17 +335,171 @@ h1, h2, h3 {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--scrollbar-thumb);
   border: 2px solid transparent;
   background-clip: padding-box;
   border-radius: 6px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(224, 168, 46, 0.25);
+  background: var(--scrollbar-thumb-hover);
   background-clip: padding-box;
+}
+
+/* ─── Theme: Grey ────────────────────────────────────────────────────────
+   The photographer's 18% neutral — perceptually fair to warm & cool tones.
+   Target is sRGB ~#787878 for the base surface, which is the Kodak grey
+   card as viewed on a display (Zone V). Amber accent unchanged; status
+   hues unchanged. This theme exists so that bright/white subjects
+   (wedding dresses, snow, flat lay) can be judged against a neutral
+   background rather than read against either pure black or pure white. */
+
+[data-theme='grey'] {
+  --bg: #787878;
+  --bg-card: #828288;
+  --bg-elevated: #8c8c92;
+  --bg-hover: #92929a;
+  --bg-sunken: #6e6e72;
+
+  --ink: #f8f8f8;
+  --ink-dim: #2a2a2e;
+  --ink-faint: #52525a;
+  --ink-whisper: #62626a;
+
+  --tan: #322b1e;
+  /* amber/status hues unchanged — same values as :root. Amber on #787878
+     meets WCAG AA for large text. */
+  --blue: #2a4060;
+  --blue-deep: #5a6d82;
+  --rose: #6e2e2e;
+  --rose-deep: #8a5050;
+  --moss: #3e5a32;
+
+  --hairline: rgba(0, 0, 0, 0.12);
+  --hairline-stronger: rgba(0, 0, 0, 0.22);
+  --hairline-boldest: rgba(0, 0, 0, 0.38);
+
+  /* Glass surfaces stay tinted toward the base grey for consistent depth */
+  --bg-glass-strong: rgba(100, 100, 104, 0.92);
+  --bg-glass: rgba(120, 120, 124, 0.82);
+  --bg-glass-soft: rgba(110, 110, 114, 0.6);
+  --bg-toast: rgba(60, 60, 64, 0.94);
+  --bg-overlay: rgba(40, 40, 44, 0.86);
+  --bg-modal-overlay: rgba(40, 40, 44, 0.66);
+
+  --badge-text: #121214;
+
+  --scrollbar-thumb: rgba(0, 0, 0, 0.22);
+  --scrollbar-thumb-hover: rgba(224, 168, 46, 0.6);
+  --scanline-opacity: 0;
+
+  --atmos-amber: rgba(224, 168, 46, 0.04);
+  --atmos-blue: rgba(140, 160, 184, 0.018);
+}
+
+/* ─── Theme: Light ───────────────────────────────────────────────────────
+   Warm off-white — not paper-white. Dark ink; amber desaturated slightly
+   so it doesn't read as garish on light. Status hues darken for contrast.
+   The lightbox STAYS dark on light theme (cinematic intent for full-screen
+   photo view). */
+
+[data-theme='light'] {
+  --bg: #f2efe8;
+  --bg-card: #e8e4db;
+  --bg-elevated: #faf8f3;
+  --bg-hover: #dedad1;
+  --bg-sunken: #e0ddd5;
+
+  --ink: #1a1814;
+  --ink-dim: #5a5650;
+  --ink-faint: #8a8680;
+  --ink-whisper: #c0bdb8;
+
+  --tan: #7a6850;
+  --amber: #c4902a;
+  --amber-soft: #d4a840;
+  /* amber-deep unchanged */
+
+  --blue: #4a6e8a;
+  --blue-deep: #d8e8f4;
+  --blue-whisper: rgba(74, 110, 138, 0.1);
+  --rose: #9a5050;
+  --rose-deep: #fde8e8;
+  --rose-whisper: rgba(154, 80, 80, 0.1);
+  --gold-whisper: rgba(196, 144, 42, 0.12);
+  --moss: #5a7a4a;
+
+  --hairline: rgba(0, 0, 0, 0.07);
+  --hairline-stronger: rgba(0, 0, 0, 0.12);
+  --hairline-boldest: rgba(0, 0, 0, 0.22);
+
+  --bg-glass-strong: rgba(242, 239, 232, 0.92);
+  --bg-glass: rgba(242, 239, 232, 0.82);
+  --bg-glass-soft: rgba(242, 239, 232, 0.6);
+  --bg-toast: rgba(250, 248, 243, 0.95);
+  --bg-overlay: rgba(30, 26, 20, 0.72);
+  --bg-modal-overlay: rgba(30, 26, 20, 0.55);
+
+  --scrollbar-thumb: rgba(0, 0, 0, 0.15);
+  --scrollbar-thumb-hover: rgba(196, 144, 42, 0.5);
+  --scanline-color: rgba(0, 0, 0, 0.12);
+  --scanline-opacity: 0;
+
+  --atmos-amber: rgba(196, 144, 42, 0.05);
+  --atmos-blue: rgba(74, 110, 138, 0.03);
+}
+
+/* Light theme fixups: elements that look wrong with a pure white cascade
+   but need to flip for this theme specifically. */
+[data-theme='light'] ::selection {
+  background: rgba(196, 144, 42, 0.3);
+  color: var(--ink);
+}
+
+/* ─── Theme toggle — segmented pill in the header ──────────────────────── */
+
+.theme-toggle {
+  display: inline-flex;
+  align-items: stretch;
+  padding: 2px;
+  border: 1px solid var(--hairline-stronger);
+  border-radius: var(--radius);
+  background: transparent;
+  gap: 0;
+  height: 28px;
+}
+
+.tt-btn {
+  font-family: var(--font-mono);
+  background: transparent;
+  border: none;
+  padding: 0 8px;
+  color: var(--ink-dim);
+  cursor: pointer;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  border-radius: 3px;
+  transition:
+    color var(--transition-fast),
+    background var(--transition-fast);
+  min-width: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.tt-btn:hover {
+  color: var(--amber);
+}
+
+.tt-btn.active {
+  background: rgba(224, 168, 46, 0.12);
+  color: var(--amber);
 }
 
 /* ─── Utility ────────────────────────────────────────────────────────── */
 
-.hidden { display: none !important; }
+.hidden {
+  display: none !important;
+}

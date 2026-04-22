@@ -3,6 +3,26 @@
 All notable changes to Shelf will be documented here.
 Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [1.0.5] — 2026-04-22
+
+Three-theme system + README visuals.
+
+### New
+
+- **Light + Grey themes** — Shelf now ships three themes instead of dark-only. Toggle in the header cycles `D / G / L`.
+  - **Dark** (default) — the original deep-black darkroom, unchanged.
+  - **Grey** (new) — neutral 18% mid-tone (≈#787878, the photographer's grey card / Zone V). Exists specifically so bright/white-heavy photos can be judged against a perceptually neutral background rather than pure black or pure white.
+  - **Light** (new) — warm off-white with darker ink and desaturated amber. For photos that look right against a light page (portraits, flat lay).
+- Theme persists to `~/.shelf/config.json` (or `%APPDATA%\shelf\config.json` on Windows) and restores on launch.
+- **Screenshots in README** — hero welcome-screen image plus a 2×2 gallery of grid / lightbox / shoot picker / favorites.
+
+### Under the hood
+
+- Theme system lives in CSS custom properties. `:root` holds dark defaults; `[data-theme='grey']` and `[data-theme='light']` override the surfaces, glass tints, hairlines, and atmospherics. Status hues (keep / favorite / reject) keep the same recognizable colors across all three themes, with only deep-bg tints adjusted for contrast.
+- Lightbox stays pure black across all three themes by design (cinematic full-screen photo viewing).
+- `.card .badge` now uses `var(--badge-text)` rather than `var(--bg)`, so the on-amber/on-steel badge text stays dark in all themes.
+- `openFolderInLightroom()`'s toast fix from v1.0.4 carried forward.
+
 ## [1.0.4] — 2026-04-22
 
 Linux support — Shelf now runs on a third platform.

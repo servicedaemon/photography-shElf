@@ -25,6 +25,7 @@ configRoutes.put('/config', (req, res) => {
     'recentShoots',
     'hintStripVisible',
     'windowBounds',
+    'theme',
   ];
   for (const key of Object.keys(updates)) {
     if (allowed.includes(key)) {

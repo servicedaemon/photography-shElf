@@ -33,6 +33,7 @@ export function getConfig() {
   configCache = {
     sortDir: path.join(os.homedir(), 'Pictures/sorted'),
     thumbSize: 280,
+    theme: 'dark',
   };
   return configCache;
 }
@@ -46,7 +47,9 @@ export function setConfig(config) {
 
 function stateFileFor(source) {
   // Hash the source path to create a unique state file
-  const safeName = Buffer.from(source || 'default').toString('base64url').slice(0, 40);
+  const safeName = Buffer.from(source || 'default')
+    .toString('base64url')
+    .slice(0, 40);
   return path.join(STATE_DIR, `${safeName}.json`);
 }
 

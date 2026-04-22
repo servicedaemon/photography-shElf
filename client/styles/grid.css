@@ -69,9 +69,15 @@
   transition: background var(--transition-fast);
 }
 
-.card.keep::before     { background: var(--blue); }
-.card.reject::before   { background: var(--rose); }
-.card.favorite::before { background: var(--amber); }
+.card.keep::before {
+  background: var(--blue);
+}
+.card.reject::before {
+  background: var(--rose);
+}
+.card.favorite::before {
+  background: var(--amber);
+}
 
 /* Status inner-glow — deeper for favorite, subtler for keep/reject */
 .card.keep {
@@ -90,7 +96,7 @@
 .card.favorite {
   box-shadow:
     0 0 0 1px rgba(224, 168, 46, 0.45),
-    inset 0 0 60px rgba(224, 168, 46, 0.10),
+    inset 0 0 60px rgba(224, 168, 46, 0.1),
     0 0 24px rgba(224, 168, 46, 0.08);
 }
 
@@ -98,7 +104,7 @@
   box-shadow:
     0 0 0 2px var(--amber),
     0 8px 32px rgba(224, 168, 46, 0.35),
-    inset 0 0 60px rgba(224, 168, 46, 0.10);
+    inset 0 0 60px rgba(224, 168, 46, 0.1);
 }
 
 .card.reject {
@@ -119,7 +125,9 @@
   height: 100%;
   object-fit: cover;
   display: block;
-  transition: filter var(--transition-medium), transform var(--transition-medium);
+  transition:
+    filter var(--transition-medium),
+    transform var(--transition-medium);
 }
 
 .card:hover img {
@@ -156,8 +164,12 @@
 }
 
 @keyframes shimmer {
-  0%   { background-position: 200% 0; }
-  100% { background-position: -200% 0; }
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
 }
 
 /* ─── Filename label (hover reveal) ──────────────────────────────────── */
@@ -172,12 +184,7 @@
   font-family: var(--font-mono);
   font-weight: 500;
   letter-spacing: 0.06em;
-  background: linear-gradient(
-    to top,
-    rgba(0, 0, 0, 0.88),
-    rgba(0, 0, 0, 0.6) 70%,
-    transparent
-  );
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.88), rgba(0, 0, 0, 0.6) 70%, transparent);
   text-align: left;
   opacity: 0;
   transition: opacity var(--transition-fast);
@@ -211,17 +218,17 @@
 
 .card.keep .badge {
   background: rgba(140, 160, 184, 0.92);
-  color: var(--bg);
+  color: var(--badge-text);
 }
 
 .card.reject .badge {
   background: rgba(192, 132, 132, 0.92);
-  color: var(--bg);
+  color: var(--badge-text);
 }
 
 .card.favorite .badge {
   background: rgba(224, 168, 46, 0.95);
-  color: var(--bg);
+  color: var(--badge-text);
   box-shadow: 0 0 12px rgba(224, 168, 46, 0.4);
 }
 
@@ -232,10 +239,18 @@
 }
 
 @keyframes card-rotate {
-  0%   { transform: rotate(0deg) scale(1); }
-  40%  { transform: rotate(3deg) scale(0.96); }
-  75%  { transform: rotate(-0.5deg) scale(1.01); }
-  100% { transform: rotate(0deg) scale(1); }
+  0% {
+    transform: rotate(0deg) scale(1);
+  }
+  40% {
+    transform: rotate(3deg) scale(0.96);
+  }
+  75% {
+    transform: rotate(-0.5deg) scale(1.01);
+  }
+  100% {
+    transform: rotate(0deg) scale(1);
+  }
 }
 
 /* ─── Mark flash — per-keypress confirmation ────────────────────────── */
@@ -245,9 +260,18 @@
 }
 
 @keyframes mark-flash {
-  0%   { transform: scale(0.97); filter: brightness(1.15); }
-  50%  { transform: scale(1.015); filter: brightness(1.08); }
-  100% { transform: scale(1); filter: brightness(1); }
+  0% {
+    transform: scale(0.97);
+    filter: brightness(1.15);
+  }
+  50% {
+    transform: scale(1.015);
+    filter: brightness(1.08);
+  }
+  100% {
+    transform: scale(1);
+    filter: brightness(1);
+  }
 }
 
 /* ─── Staggered entry on folder load ────────────────────────────────── */
@@ -258,6 +282,12 @@
 }
 
 @keyframes card-in {
-  0%   { opacity: 0; transform: translateY(8px) scale(0.97); }
-  100% { opacity: 1; transform: translateY(0) scale(1); }
+  0% {
+    opacity: 0;
+    transform: translateY(8px) scale(0.97);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }

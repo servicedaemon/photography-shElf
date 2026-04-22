@@ -16,7 +16,7 @@
   border: 1px solid;
   position: relative;
   isolation: isolate;
-  cursor: help;  /* signal that the title-tooltip is worth hovering */
+  cursor: help; /* signal that the title-tooltip is worth hovering */
   transition: filter var(--transition-fast);
 }
 
@@ -38,15 +38,13 @@
 .stage-pill.stage-cull {
   color: var(--blue);
   border-color: rgba(140, 160, 184, 0.35);
-  background:
-    linear-gradient(180deg, rgba(140, 160, 184, 0.08), rgba(140, 160, 184, 0.02));
+  background: linear-gradient(180deg, rgba(140, 160, 184, 0.08), rgba(140, 160, 184, 0.02));
 }
 
 .stage-pill.stage-heroes {
   color: var(--amber);
   border-color: rgba(224, 168, 46, 0.45);
-  background:
-    linear-gradient(180deg, rgba(224, 168, 46, 0.12), rgba(224, 168, 46, 0.03));
+  background: linear-gradient(180deg, rgba(224, 168, 46, 0.12), rgba(224, 168, 46, 0.03));
   box-shadow:
     inset 0 0 12px rgba(224, 168, 46, 0.08),
     0 0 0 1px rgba(224, 168, 46, 0.04);
@@ -55,8 +53,7 @@
 .stage-pill.stage-final {
   color: var(--moss);
   border-color: rgba(154, 181, 138, 0.45);
-  background:
-    linear-gradient(180deg, rgba(154, 181, 138, 0.10), rgba(154, 181, 138, 0.02));
+  background: linear-gradient(180deg, rgba(154, 181, 138, 0.1), rgba(154, 181, 138, 0.02));
 }
 
 /* ─── Drag-over overlay ─────────────────────────────────────────────── */
@@ -65,8 +62,11 @@ body.drag-over::after {
   content: 'DROP FOLDER TO LOAD';
   position: fixed;
   inset: 0;
-  background:
-    radial-gradient(ellipse at center, rgba(224, 168, 46, 0.08), rgba(10, 10, 12, 0.95) 70%);
+  background: radial-gradient(
+    ellipse at center,
+    rgba(224, 168, 46, 0.08),
+    var(--bg-glass-strong) 70%
+  );
   color: var(--amber);
   font-family: var(--font-mono);
   font-size: 18px;
@@ -117,7 +117,7 @@ body.drag-over::after {
   bottom: 28px;
   left: 50%;
   transform: translateX(-50%);
-  background: rgba(10, 10, 12, 0.92);
+  background: var(--bg-glass-strong);
   backdrop-filter: blur(16px);
   border: 1px solid rgba(224, 168, 46, 0.25);
   color: var(--tan);
@@ -151,11 +151,23 @@ body.drag-over::after {
 }
 
 @keyframes coach-in {
-  0%   { opacity: 0; transform: translate(-50%, 20px); }
-  100% { opacity: 1; transform: translate(-50%, 0); }
+  0% {
+    opacity: 0;
+    transform: translate(-50%, 20px);
+  }
+  100% {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
 }
 
 @keyframes coach-out {
-  0%   { opacity: 1; transform: translate(-50%, 0); }
-  100% { opacity: 0; transform: translate(-50%, 20px); }
+  0% {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, 20px);
+  }
 }
