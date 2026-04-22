@@ -16,6 +16,12 @@
   border: 1px solid;
   position: relative;
   isolation: isolate;
+  cursor: help;  /* signal that the title-tooltip is worth hovering */
+  transition: filter var(--transition-fast);
+}
+
+.stage-pill:hover {
+  filter: brightness(1.2);
 }
 
 /* Leading dot indicator */

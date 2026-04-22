@@ -33,3 +33,23 @@ test('detectStage: Windows trailing backslash does not break detection', () => {
 test('detectStage: Windows Favorites subfolder is FINAL', () => {
   assert.equal(detectStage('C:\\Users\\ava\\Keeps - 04-2026 - X\\Favorites'), 'FINAL');
 });
+
+test('detectStage: inline shoot keeps/ (lowercase) is HEROES', () => {
+  assert.equal(detectStage('/Users/ava/media/photography/2026-03 - Studio/keeps'), 'HEROES');
+});
+
+test('detectStage: lowercase favorites/ is FINAL', () => {
+  assert.equal(detectStage('/Users/ava/Pictures/2026-04 - X/favorites'), 'FINAL');
+});
+
+test('detectStage: edited/ is FINAL', () => {
+  assert.equal(detectStage('/Users/ava/Pictures/2026-04 - X/edited'), 'FINAL');
+});
+
+test('detectStage: rejects/ stays CULL', () => {
+  assert.equal(detectStage('/Users/ava/Pictures/2026-04 - X/rejects'), 'CULL');
+});
+
+test('detectStage: unsorted/ stays CULL', () => {
+  assert.equal(detectStage('/Users/ava/Pictures/2026-04 - X/unsorted'), 'CULL');
+});
