@@ -403,12 +403,30 @@ sortingRoutes.get('/shoot-context', (req, res) => {
   const base = path.basename(sourcePath).toLowerCase();
   const SUBS = ['keeps', 'rejects', 'unsorted', 'favorites', 'edited'];
 
-  // If source is itself a sub-folder like keeps/, parent is the shoot root
-  if (!SUBS.includes(base)) {
-    return res.json({ insideShoot: false });
+  // Figure out the shoot root: either sourcePath itself (if sourcePath IS a
+  // shoot root containing SUBS folders), or its parent (if sourcePath is a
+  // known sub-folder of a shoot).
+  let shootRoot;
+  let currentSub = base;
+  if (SUBS.includes(base)) {
+    shootRoot = path.dirname(sourcePath);
+  } else {
+    // Check if sourcePath itself is a shoot (has any SUB folders as children)
+    try {
+      const children = fs.readdirSync(sourcePath, { withFileTypes: true });
+      const hasShootSubs = children.some(
+        (c) => c.isDirectory() && SUBS.includes(c.name.toLowerCase()),
+      );
+      if (hasShootSubs) {
+        shootRoot = sourcePath;
+        currentSub = null; // at the shoot root itself, not in a specific sub
+      } else {
+        return res.json({ insideShoot: false });
+      }
+    } catch {
+      return res.json({ insideShoot: false });
+    }
   }
-
-  const shootRoot = path.dirname(sourcePath);
   // Confirm parent has at least one other sort-sibling
   let entries;
   try {
@@ -434,11 +452,8 @@ sortingRoutes.get('/shoot-context', (req, res) => {
     }
   }
 
-  // At minimum one sibling besides the current sub-folder means this is a shoot.
-  // (Previously required >=2, which hid the nav on partially-culled shoots.)
-  const siblingKeys = Object.keys(siblings);
-  const hasOthers = siblingKeys.some((k) => k !== base);
-  if (!hasOthers) {
+  // Any recognized sub-folder means this is a shoot.
+  if (Object.keys(siblings).length === 0) {
     return res.json({ insideShoot: false });
   }
 
@@ -446,7 +461,7 @@ sortingRoutes.get('/shoot-context', (req, res) => {
     insideShoot: true,
     shootRoot,
     shootName: path.basename(shootRoot),
-    currentSub: base,
+    currentSub,
     siblings, // { keeps: {path, count}, rejects: {path, count}, ... }
   });
 });
@@ -467,11 +482,27 @@ sortingRoutes.post('/sort-in-place', (req, res) => {
 
   const base = path.basename(sourcePath).toLowerCase();
   const SUBS = ['keeps', 'rejects', 'unsorted', 'favorites', 'edited'];
-  if (!SUBS.includes(base)) {
-    return res.status(400).json({ error: 'Source is not a shoot sub-folder' });
-  }
 
-  const shootRoot = path.dirname(sourcePath);
+  // Source may be either a shoot sub-folder, or the shoot root itself.
+  let shootRoot;
+  if (SUBS.includes(base)) {
+    shootRoot = path.dirname(sourcePath);
+  } else {
+    // Is sourcePath itself a shoot root? (has any SUB child folders)
+    try {
+      const children = fs.readdirSync(sourcePath, { withFileTypes: true });
+      const hasShootSubs = children.some(
+        (c) => c.isDirectory() && SUBS.includes(c.name.toLowerCase()),
+      );
+      if (hasShootSubs) {
+        shootRoot = sourcePath;
+      } else {
+        return res.status(400).json({ error: 'Source is not a shoot sub-folder or shoot root' });
+      }
+    } catch {
+      return res.status(400).json({ error: 'Cannot read source' });
+    }
+  }
 
   // Figure out existing sibling folders (preserve casing), compute targets
   function findOrMakeSub(lcName, preferredCase) {

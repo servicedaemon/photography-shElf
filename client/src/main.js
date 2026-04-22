@@ -121,12 +121,10 @@ function renderHeader() {
     const total = keeps + favs + rejects;
     const unsorted = images.length - total;
     const hasMarks = total > 0;
-    const stage = getStage();
 
     header.innerHTML = `
       <div class="elf-corner" id="header-elf"></div>
       <h1>Shelf</h1>
-      <span class="stage-pill stage-${stage.toLowerCase()}" title="${stageTooltip(stage)}">${stage}</span>
       <span class="stat stat-keep">${keeps} keep</span>
       <span class="stat stat-favorite">${favs} fav</span>
       <span class="stat stat-reject">${rejects} reject</span>
@@ -562,10 +560,14 @@ async function handleSort() {
   const unsorted = images.length - keeps - favs - rejects;
   const markedTotal = keeps + favs + rejects;
 
-  // First, see if we're inside an existing shoot (source is a sub-folder
-  // like keeps/, rejects/, unsorted/). If so, offer to sort in place —
-  // move marked files into the shoot's existing sibling folders instead
-  // of creating a brand new dated bundle.
+  if (markedTotal === 0 && unsorted === 0) {
+    showToast('Nothing to sort', 'error');
+    return;
+  }
+
+  // Detect whether the user is inside an existing shoot. If so, the default
+  // action is "sort in place" (route marks into the shoot's sibling folders).
+  // If not, the default is a new dated bundle in ~/Pictures/sorted/.
   let shootContext = null;
   try {
     const ctxRes = await fetch(`/api/shoot-context?source=${encodeURIComponent(source)}`);
@@ -573,81 +575,148 @@ async function handleSort() {
       const ctx = await ctxRes.json();
       if (ctx.insideShoot) shootContext = ctx;
     }
-  } catch {
-    // Fall through to new-bundle flow.
-  }
+  } catch { /* fall through */ }
 
-  if (shootContext) {
-    return handleSortInPlace(shootContext, { keeps, favs, rejects, unsorted, markedTotal });
-  }
+  // Unified sort modal with a "Save to a new dated shoot folder" checkbox.
+  // Default: unchecked when inside a shoot (sort in place), checked when
+  // starting fresh from a camera card / loose folder.
+  const decision = await showSortModal({
+    counts: { keeps, favs, rejects, unsorted, markedTotal, total: images.length },
+    shootContext,
+  });
+  if (!decision) return;
 
-  // Name input modal
-  const name = await showInputModal(
-    'Sort to Folders',
-    `This will move all ${images.length} images off the source:\n${keeps} keeps, ${favs} favorites, ${rejects} rejects, ${unsorted} unsorted`,
-    'Photoshoot name',
-  );
-  if (!name) return;
-
-  // Confirmation
-  const confirmed = await showConfirmModal(
-    'Confirm Sort',
-    `Move ${images.length} images to ~/Pictures/sorted/?\n\n${keeps} keeps\n${favs} favorites\n${rejects} rejects\n${unsorted} unsorted\n\nFolder prefix: "${name}"`,
-  );
-  if (!confirmed) return;
-
-  try {
-    const res = await fetch('/api/sort', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, source }),
-    });
-    const data = await res.json();
-
-    if (data.errors) {
-      showToast(`${data.errors.length} files had errors`, 'error');
-    }
-
-    // Compute the keeps folder path to enable "Pick Heroes" bridge button
-    const now = new Date();
-    const dateStr = String(now.getMonth() + 1).padStart(2, '0') + '-' + now.getFullYear();
-    const safeName = name.replace(/[^a-zA-Z0-9 _-]/g, '').trim();
-    const configRes = await fetch('/api/config');
-    const config = await configRes.json();
-    const sortDir = config.sortDir || '';
-    const keepsPath = sortDir ? `${sortDir}/Keeps - ${dateStr} - ${safeName}` : null;
-
-    showSortBridge(data.moved, keepsPath);
-    if (window.shelf && window.shelf.showNotification) {
-      const total = Object.values(data.moved).reduce((a, b) => a + b, 0);
-      window.shelf.showNotification('Sort complete', `Sorted ${total} images`);
-    }
-  } catch (e) {
-    showToast('Sort failed: ' + e.message, 'error');
+  if (decision.mode === 'in-place') {
+    await doSortInPlace(shootContext);
+  } else {
+    await doSortNewBundle(decision.name);
   }
 }
 
-// Sort "in place" — the source folder is a sub-folder of an existing shoot.
-// Move marked files into the shoot's existing sibling folders instead of
-// creating a brand-new dated bundle in sortDir.
-async function handleSortInPlace(ctx, counts) {
-  const { keeps, favs, rejects, markedTotal } = counts;
-  if (markedTotal === 0) {
-    showToast('Nothing marked. Press P / F / X to mark photos first.', 'error');
-    return;
-  }
+// The unified sort dialog. Returns { mode: 'in-place' } | { mode: 'new', name }
+// | null (cancelled).
+function showSortModal({ counts, shootContext }) {
+  return new Promise((resolve) => {
+    const overlay = document.getElementById('modal-overlay');
+    const { keeps, favs, rejects, unsorted, markedTotal } = counts;
+    const insideShoot = !!shootContext;
 
-  const parts = [];
-  if (keeps) parts.push(`${keeps} keeps`);
-  if (favs) parts.push(`${favs} favorites`);
-  if (rejects) parts.push(`${rejects} rejects`);
+    while (overlay.firstChild) overlay.removeChild(overlay.firstChild);
 
-  const confirmed = await showConfirmModal(
-    `Sort into "${ctx.shootName}"`,
-    `Move ${markedTotal} marked image${markedTotal !== 1 ? 's' : ''} into this shoot's existing folders?\n\n${parts.join('\n')}\n\nUnmarked photos stay in place.`,
-  );
-  if (!confirmed) return;
+    const modal = document.createElement('div');
+    modal.className = 'modal';
 
+    const h = document.createElement('h2');
+    h.textContent = 'Sort to Folders';
+    modal.appendChild(h);
+
+    const summary = document.createElement('p');
+    const parts = [];
+    if (keeps) parts.push(`${keeps} keeps`);
+    if (favs) parts.push(`${favs} favorites`);
+    if (rejects) parts.push(`${rejects} rejects`);
+    if (unsorted) parts.push(`${unsorted} unsorted`);
+    summary.textContent = parts.join(' · ') || '0 marked';
+    modal.appendChild(summary);
+
+    // Checkbox: only "new shoot" mode when user explicitly opts in
+    const checkRow = document.createElement('label');
+    checkRow.className = 'sort-check-row';
+    const check = document.createElement('input');
+    check.type = 'checkbox';
+    check.id = 'sort-new-shoot';
+    // Default ON when NOT inside a shoot (i.e. camera card / loose folder)
+    check.checked = !insideShoot;
+    const checkLabel = document.createElement('span');
+    checkLabel.textContent = 'Save to a new dated shoot folder';
+    checkRow.append(check, checkLabel);
+    modal.appendChild(checkRow);
+
+    const explainer = document.createElement('p');
+    explainer.className = 'sort-explainer';
+    modal.appendChild(explainer);
+
+    // Name input — shown when checkbox is checked
+    const nameWrap = document.createElement('div');
+    nameWrap.className = 'sort-name-wrap';
+    const nameInput = document.createElement('input');
+    nameInput.className = 'modal-input';
+    nameInput.placeholder = 'Shoot name';
+    nameInput.autocomplete = 'off';
+    nameWrap.appendChild(nameInput);
+    modal.appendChild(nameWrap);
+
+    function updateMode() {
+      const newShoot = check.checked;
+      nameWrap.style.display = newShoot ? '' : 'none';
+      if (newShoot) {
+        explainer.textContent = `Will create Keeps / Favorites / Rejects / Unsorted folders in ~/Pictures/sorted/ using the shoot name.`;
+      } else {
+        explainer.textContent = `Will move marked images into "${shootContext.shootName}"'s existing folders. Unmarked photos stay in place.`;
+      }
+    }
+    check.addEventListener('change', updateMode);
+    updateMode();
+    if (check.checked) setTimeout(() => nameInput.focus(), 0);
+
+    const btns = document.createElement('div');
+    btns.className = 'modal-buttons';
+    const cancel = document.createElement('button');
+    cancel.className = 'btn btn-muted';
+    cancel.textContent = 'Cancel';
+    const confirm = document.createElement('button');
+    confirm.className = 'btn btn-primary';
+    confirm.textContent = 'Sort';
+    btns.append(cancel, confirm);
+    modal.appendChild(btns);
+
+    overlay.appendChild(modal);
+    overlay.classList.add('active');
+
+    const keyHandler = (e) => {
+      if (e.key === 'Escape') { e.preventDefault(); close(null); }
+      else if (e.key === 'Enter' && document.activeElement !== nameInput) {
+        // Enter anywhere except inside the name field triggers confirm
+        e.preventDefault();
+        onConfirm();
+      }
+    };
+    const close = (v) => {
+      document.removeEventListener('keydown', keyHandler);
+      overlay.classList.remove('active');
+      resolve(v);
+    };
+
+    function onConfirm() {
+      if (check.checked) {
+        const name = nameInput.value.trim();
+        if (!name) {
+          nameInput.focus();
+          return; // don't close — user needs to supply a name
+        }
+        close({ mode: 'new', name });
+      } else {
+        if (markedTotal === 0) {
+          // Sort in place with no marks = no-op. Warn instead of proceeding.
+          cancel.click();
+          showToast('Nothing marked to sort in place. Press K / F / X first, or check "new shoot".', 'error');
+          return;
+        }
+        close({ mode: 'in-place' });
+      }
+    }
+
+    cancel.addEventListener('click', () => close(null));
+    confirm.addEventListener('click', onConfirm);
+    nameInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); onConfirm(); }
+    });
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) close(null); });
+    document.addEventListener('keydown', keyHandler);
+  });
+}
+
+async function doSortInPlace(ctx) {
   try {
     const res = await fetch('/api/sort-in-place', {
       method: 'POST',
@@ -655,11 +724,7 @@ async function handleSortInPlace(ctx, counts) {
       body: JSON.stringify({ source }),
     });
     const data = await res.json();
-
-    if (!res.ok) {
-      showToast(data.error || 'Sort failed', 'error');
-      return;
-    }
+    if (!res.ok) { showToast(data.error || 'Sort failed', 'error'); return; }
 
     const moved = data.moved || {};
     const totalMoved = (moved.keep || 0) + (moved.favorite || 0) + (moved.reject || 0) + (moved.unsorted || 0);
@@ -668,18 +733,50 @@ async function handleSortInPlace(ctx, counts) {
     if (moved.favorite) resultParts.push(`${moved.favorite} → Favorites`);
     if (moved.reject) resultParts.push(`${moved.reject} → rejects`);
     if (moved.unsorted) resultParts.push(`${moved.unsorted} → unsorted`);
-
     showToast(`Sorted ${totalMoved} into "${ctx.shootName}": ${resultParts.join(', ')}`, 'success');
 
     if (data.errors && data.errors.length) {
       showToast(`${data.errors.length} files had errors`, 'error');
     }
-
     if (window.shelf && window.shelf.showNotification) {
       window.shelf.showNotification('Sorted in place', `${totalMoved} images into ${ctx.shootName}`);
     }
 
+    // Refresh the grid so stale marks clear and the user sees what's left.
     bus.emit(EVENTS.REFRESH);
+  } catch (e) {
+    showToast('Sort failed: ' + e.message, 'error');
+  }
+}
+
+async function doSortNewBundle(name) {
+  try {
+    const res = await fetch('/api/sort', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, source }),
+    });
+    const data = await res.json();
+    if (data.errors) showToast(`${data.errors.length} files had errors`, 'error');
+
+    // Compute the keeps folder path for the Pick Heroes bridge button
+    const now = new Date();
+    const dateStr = String(now.getMonth() + 1).padStart(2, '0') + '-' + now.getFullYear();
+    const safeName = name.replace(/[^a-zA-Z0-9 _-]/g, '').trim();
+    const configRes = await fetch('/api/config');
+    const config = await configRes.json();
+    const sortDir = config.sortDir || '';
+    const keepsPath = sortDir ? `${sortDir}/Keeps - ${dateStr} - ${safeName}` : null;
+
+    // Refresh the source grid so marks clear (source is now empty for the
+    // sorted items — everything was moved out).
+    bus.emit(EVENTS.REFRESH);
+
+    showSortBridge(data.moved, keepsPath);
+    if (window.shelf && window.shelf.showNotification) {
+      const total = Object.values(data.moved).reduce((a, b) => a + b, 0);
+      window.shelf.showNotification('Sort complete', `Sorted ${total} images`);
+    }
   } catch (e) {
     showToast('Sort failed: ' + e.message, 'error');
   }
