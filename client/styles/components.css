@@ -740,6 +740,8 @@
 .shoot-chip-danger {
   color: var(--rose);
   border-color: rgba(192, 132, 132, 0.35);
+  /* Stick to the right edge even when the chip row wraps */
+  margin-left: auto;
 }
 
 .shoot-chip-danger:hover {

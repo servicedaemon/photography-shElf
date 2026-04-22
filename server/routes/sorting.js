@@ -433,7 +433,11 @@ sortingRoutes.get('/shoot-context', (req, res) => {
     }
   }
 
-  if (Object.keys(siblings).length < 2) {
+  // At minimum one sibling besides the current sub-folder means this is a shoot.
+  // (Previously required >=2, which hid the nav on partially-culled shoots.)
+  const siblingKeys = Object.keys(siblings);
+  const hasOthers = siblingKeys.some((k) => k !== base);
+  if (!hasOthers) {
     return res.json({ insideShoot: false });
   }
 
@@ -548,6 +552,9 @@ sortingRoutes.post('/sort-in-place', (req, res) => {
 // GET /api/list-folder-files?path=/path
 // Returns absolute filesystem paths of all image files in a folder.
 // Used by the client to pass paths to Electron's trash IPC for "Empty Rejects".
+// Scoped: path must be a known shoot sub-folder (keeps/rejects/unsorted/favorites/edited)
+// whose parent also contains at least one other shoot sub-folder. This prevents
+// arbitrary-directory enumeration while still working for every real shoot layout.
 sortingRoutes.get('/list-folder-files', (req, res) => {
   const folder = req.query.path;
   if (!folder) return res.status(400).json({ error: 'path required' });
@@ -555,6 +562,26 @@ sortingRoutes.get('/list-folder-files', (req, res) => {
   if (!fs.existsSync(resolved) || !fs.statSync(resolved).isDirectory()) {
     return res.status(404).json({ error: 'Not found' });
   }
+
+  const ALLOWED_SUBS = ['keeps', 'rejects', 'unsorted', 'favorites', 'edited'];
+  const base = path.basename(resolved).toLowerCase();
+  if (!ALLOWED_SUBS.includes(base)) {
+    return res.status(403).json({ error: 'Path is not a recognized shoot sub-folder' });
+  }
+  // Require at least one sibling also matches an allowed sub-folder name.
+  const parent = path.dirname(resolved);
+  let hasSibling = false;
+  try {
+    for (const e of fs.readdirSync(parent, { withFileTypes: true })) {
+      if (!e.isDirectory()) continue;
+      const lc = e.name.toLowerCase();
+      if (lc !== base && ALLOWED_SUBS.includes(lc)) { hasSibling = true; break; }
+    }
+  } catch { /* fall through to reject */ }
+  if (!hasSibling) {
+    return res.status(403).json({ error: 'Folder has no shoot siblings' });
+  }
+
   try {
     const files = fs.readdirSync(resolved)
       .filter((f) => VALID_FILENAME.test(f))

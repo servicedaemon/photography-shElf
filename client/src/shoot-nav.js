@@ -13,6 +13,9 @@ import { bus, EVENTS } from './events.js';
 let navEl = null;
 let currentSource = '';
 let loadSourceFn = null;
+let currentCtx = null;      // cached last shoot-context response
+let inFlightAbort = null;   // cancels previous fetch on rapid refresh
+let refreshTimer = null;    // debounce
 
 const FOLDER_ORDER = ['unsorted', 'keeps', 'favorites', 'rejects', 'edited'];
 const FOLDER_LABEL = {
@@ -29,26 +32,38 @@ export function initShootNav(onLoadSource) {
 
   bus.on(EVENTS.MODE_CHANGED, ({ newSource }) => {
     currentSource = newSource || '';
-    refresh();
+    scheduleRefresh();
   });
-  bus.on(EVENTS.REFRESH, refresh);
+  bus.on(EVENTS.REFRESH, scheduleRefresh);
+}
+
+// Debounced to avoid the double-fetch when MODE_CHANGED + REFRESH fire together.
+function scheduleRefresh() {
+  if (refreshTimer) clearTimeout(refreshTimer);
+  refreshTimer = setTimeout(refresh, 120);
 }
 
 async function refresh() {
   if (!navEl) return;
   if (!currentSource) { hide(); return; }
 
+  // Cancel any in-flight request so we don't race each other.
+  if (inFlightAbort) inFlightAbort.abort();
+  inFlightAbort = new AbortController();
+  const signal = inFlightAbort.signal;
+
   let ctx;
   try {
-    const res = await fetch(`/api/shoot-context?source=${encodeURIComponent(currentSource)}`);
+    const res = await fetch(`/api/shoot-context?source=${encodeURIComponent(currentSource)}`, { signal });
     if (!res.ok) { hide(); return; }
     ctx = await res.json();
-  } catch {
-    hide();
+  } catch (e) {
+    if (e.name !== 'AbortError') hide();
     return;
   }
 
   if (!ctx.insideShoot) { hide(); return; }
+  currentCtx = ctx;
   render(ctx);
 }
 
@@ -92,6 +107,8 @@ function render(ctx) {
 
     btn.append(label, count);
     btn.addEventListener('click', () => {
+      // No-op if user clicks the already-active chip
+      if (k === currentSub) return;
       if (loadSourceFn) loadSourceFn(s.path);
     });
     chipsRow.appendChild(btn);
@@ -123,9 +140,8 @@ function render(ctx) {
 async function emptyRejects(rejectSibling) {
   if (!rejectSibling) return;
 
-  const confirmed = await confirmEmptyRejects(rejectSibling.count, rejectSibling.path);
-  if (!confirmed) return;
-
+  // Fetch live file list FIRST so confirmation shows the real count, not a
+  // potentially stale cached one.
   let files;
   try {
     const res = await fetch(`/api/list-folder-files?path=${encodeURIComponent(rejectSibling.path)}`);
@@ -141,19 +157,10 @@ async function emptyRejects(rejectSibling) {
     return;
   }
 
-  if (window.shelf && window.shelf.trashFiles) {
-    const result = await window.shelf.trashFiles(files);
-    bus.emit(EVENTS.TOAST, {
-      message: `Moved ${result.trashed} reject${result.trashed !== 1 ? 's' : ''} to Trash`,
-      type: 'success',
-    });
-    if (result.errors && result.errors.length) {
-      bus.emit(EVENTS.TOAST, {
-        message: `${result.errors.length} files could not be trashed`,
-        type: 'error',
-      });
-    }
-  } else {
+  const confirmed = await confirmEmptyRejects(files.length, rejectSibling.path);
+  if (!confirmed) return;
+
+  if (!(window.shelf && window.shelf.trashFiles)) {
     bus.emit(EVENTS.TOAST, {
       message: 'Empty Rejects requires the desktop app',
       type: 'error',
@@ -161,7 +168,46 @@ async function emptyRejects(rejectSibling) {
     return;
   }
 
+  // Track whether we're currently viewing the rejects folder so we can
+  // gracefully jump elsewhere after emptying.
+  const wasViewingRejects = currentSource === rejectSibling.path;
+
+  const result = await window.shelf.trashFiles(files);
+  bus.emit(EVENTS.TOAST, {
+    message: `Moved ${result.trashed} reject${result.trashed !== 1 ? 's' : ''} to Trash`,
+    type: 'success',
+  });
+  if (result.errors && result.errors.length) {
+    bus.emit(EVENTS.TOAST, {
+      message: `${result.errors.length} files could not be trashed`,
+      type: 'error',
+    });
+  }
+
+  // If user was inside the rejects folder, auto-nav somewhere else so the
+  // grid doesn't end up on a now-empty view (and the action bar stays sane).
+  if (wasViewingRejects && loadSourceFn && currentCtx && currentCtx.siblings) {
+    const fallback =
+      currentCtx.siblings.unsorted?.path ||
+      currentCtx.siblings.keeps?.path ||
+      currentCtx.siblings.favorites?.path ||
+      currentCtx.shootRoot;
+    if (fallback) {
+      loadSourceFn(fallback);
+      return; // loadSource triggers its own MODE_CHANGED + refresh
+    }
+  }
+
   bus.emit(EVENTS.REFRESH);
+}
+
+// Truncate an absolute path to a friendlier form (~/... when inside $HOME).
+function friendlyPath(p) {
+  const home = (typeof process !== 'undefined' && process.env?.HOME) || '';
+  // Browser has no process.env; fall back to showing the last two segments.
+  if (home && p.startsWith(home)) return '~' + p.slice(home.length);
+  const parts = p.split('/');
+  return parts.length > 3 ? '…/' + parts.slice(-3).join('/') : p;
 }
 
 function confirmEmptyRejects(count, path) {
@@ -186,8 +232,8 @@ function confirmEmptyRejects(count, path) {
     modal.appendChild(p1);
 
     const p2 = document.createElement('p');
-    p2.style.cssText = 'color:var(--ink-faint);font-size:11px;margin-top:10px';
-    p2.textContent = path;
+    p2.style.cssText = 'color:var(--ink-faint);font-size:11px;margin-top:10px;font-family:var(--font-mono)';
+    p2.textContent = friendlyPath(path);
     modal.appendChild(p2);
 
     const btns = document.createElement('div');
@@ -207,8 +253,25 @@ function confirmEmptyRejects(count, path) {
     modal.appendChild(btns);
     overlay.appendChild(modal);
     overlay.classList.add('active');
+    // Default focus on Cancel so accidental Enter-presses don't trash
+    cancel.focus();
 
-    const close = (v) => { overlay.classList.remove('active'); resolve(v); };
+    // Keyboard: Enter confirms (only when Trash button is focused via Tab),
+    // Escape always cancels. This matches the behavior of showConfirmModal.
+    const onKey = (e) => {
+      if (e.key === 'Escape') { e.preventDefault(); close(false); }
+      else if (e.key === 'Enter' && document.activeElement === confirm) {
+        e.preventDefault();
+        close(true);
+      }
+    };
+    document.addEventListener('keydown', onKey);
+
+    const close = (v) => {
+      document.removeEventListener('keydown', onKey);
+      overlay.classList.remove('active');
+      resolve(v);
+    };
     overlay.addEventListener('click', (e) => { if (e.target === overlay) close(false); });
   });
 }
