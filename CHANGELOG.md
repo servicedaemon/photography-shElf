@@ -3,6 +3,30 @@
 All notable changes to Shelf will be documented here.
 Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [1.1.0] — 2026-04-23
+
+Burst grouping. One decision per group instead of N.
+
+### New
+
+- **Burst grouping** — photos taken within 5 seconds of each other are detected automatically via EXIF `DateTimeOriginal` + `SubSecTimeOriginal`. Cards in a burst get a `◈N` badge showing the group size. Hover any burst card and all its siblings light up in amber so you can compare the group and pick the best one with one decision.
+- **Chain clustering** — if A-B are within 5 seconds and B-C are within 5 seconds, all three cluster together even though A-C may span 8+ seconds. Matches how Canon-style burst mode writes frames.
+
+### How the detection works
+
+Shelf batch-reads EXIF timestamps when you load a shoot (cached per folder until any file changes). A pure `groupImages()` function does the clustering — 12 unit tests cover empty input, singletons, chain clustering, gap breaks, boundary cases, and real-shoot data from a confirmed IMG_1445/1446/1447 burst in one of Ava's sessions.
+
+### Why not ML?
+
+A CLIP-vs-DINOv2-vs-timestamp spike on 14 real photos from 4 shoots found timestamp clustering at 5s gap had **F1 = 1.00** — identical accuracy to DINOv2-small at cosine 0.80, and strictly better than CLIP ViT-B/32 (F1=0.88). Timestamps are free; ML was 111ms/photo and required a 22MB bundled model. Design brainstorm + pressure-test notes are in `docs/design/`. The ML path is still reachable via a clean `groupImages()` seam if retake detection (same setup, long gap) ever surfaces as real friction.
+
+### Under the hood
+
+- `server/lib/grouping.js` — pure clustering function (12 tests)
+- `server/lib/exif-cache.js` — batch EXIF read with per-folder mtime cache. Exports `exifToTimestamp()` as a testable pure fn (11 more tests) that correctly handles 1-digit, 2-digit, and 3-digit `SubSecTimeOriginal` values — the naive `parseInt × 10` formula (which would have shipped) would have silently corrupted timestamps on Sony / Nikon cameras that emit different digit counts.
+- `/api/images` response extended with a `bursts` field (array of filename arrays, one per group).
+- 37 server tests pass.
+
 ## [1.0.5] — 2026-04-22
 
 Three-theme system + README visuals.

@@ -232,6 +232,40 @@
   box-shadow: 0 0 12px rgba(224, 168, 46, 0.4);
 }
 
+/* ─── Burst badge (top left) + sibling highlight on hover ───────────── */
+
+.card .burst-badge {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  padding: 2px 7px;
+  border-radius: 2px;
+  background: rgba(168, 188, 204, 0.9);
+  color: var(--badge-text);
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  z-index: 3;
+  pointer-events: none;
+  opacity: 0.85;
+  transition: opacity var(--transition-fast);
+}
+
+.card:hover .burst-badge,
+.card.burst-sibling .burst-badge {
+  opacity: 1;
+}
+
+/* When you hover a burst card, all its siblings get an amber ring. */
+.card.burst-sibling:not(.selected):not(.selection) {
+  box-shadow:
+    0 0 0 2px rgba(224, 168, 46, 0.55),
+    0 4px 16px rgba(224, 168, 46, 0.15);
+}
+
 /* ─── Rotation animation ────────────────────────────────────────────── */
 
 .card.rotating {

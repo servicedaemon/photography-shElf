@@ -12,6 +12,12 @@ let gridEl = null;
 let observer = null;
 let currentSelectionRange = null; // tracked via SELECTION_CHANGED event
 
+// Burst grouping: array of arrays of filenames (each inner array = one burst group of ≥2 frames).
+// Derived lookup: filename → burstId (index into bursts[]) and burstId → size.
+let bursts = [];
+let burstIdByFilename = new Map();
+let burstSizeById = [];
+
 export function initGrid() {
   gridEl = document.getElementById('grid');
 
@@ -28,12 +34,22 @@ export function initGrid() {
   });
 }
 
-export function setGridData(newImages, newSource, newFolder, newMode) {
+export function setGridData(newImages, newSource, newFolder, newMode, newBursts = []) {
   images = newImages;
   source = newSource;
   folder = newFolder;
   mode = newMode;
   selectedIndex = -1;
+
+  // Rebuild burst lookups from the server-supplied groups
+  bursts = Array.isArray(newBursts) ? newBursts : [];
+  burstIdByFilename = new Map();
+  burstSizeById = [];
+  bursts.forEach((group, id) => {
+    burstSizeById[id] = group.length;
+    for (const fn of group) burstIdByFilename.set(fn, id);
+  });
+
   renderGrid();
 }
 
@@ -217,12 +233,36 @@ function renderGrid() {
     label.textContent = img.filename;
     card.appendChild(label);
 
-    // Badge
+    // Status badge (keep/favorite/reject)
     if (status !== 'unmarked') {
       const badge = document.createElement('div');
       badge.className = 'badge';
       badge.textContent = status;
       card.appendChild(badge);
+    }
+
+    // Burst badge — photos within 5s of each other share a burstId.
+    // Hovering one card highlights all siblings via .burst-sibling class.
+    const burstId = burstIdByFilename.get(img.filename);
+    if (burstId !== undefined) {
+      card.dataset.burstId = String(burstId);
+      const size = burstSizeById[burstId];
+      const burstBadge = document.createElement('div');
+      burstBadge.className = 'burst-badge';
+      burstBadge.textContent = `◈${size}`;
+      burstBadge.title = `${size} photos in this burst (within 5 seconds)`;
+      card.appendChild(burstBadge);
+
+      card.addEventListener('mouseenter', () => {
+        gridEl
+          .querySelectorAll(`.card[data-burst-id="${burstId}"]`)
+          .forEach((c) => c.classList.add('burst-sibling'));
+      });
+      card.addEventListener('mouseleave', () => {
+        gridEl
+          .querySelectorAll('.card.burst-sibling')
+          .forEach((c) => c.classList.remove('burst-sibling'));
+      });
     }
 
     // Click handler

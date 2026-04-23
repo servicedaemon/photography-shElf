@@ -57,6 +57,7 @@ It is not a RAW developer — Lightroom (or Capture One, or Photoshop) is. It's 
 - **DNG conversion** — bundled `dnglab` support turns CR3/NEF/etc. into lossless DNG for Lightroom compatibility.
 - **Edit in Lightroom** — one-click handoff opens your Favorites folder in Lightroom on macOS (or your file manager on Windows/Linux, drag from there).
 - **EXIF inspector + tags** — sidebar shows camera, lens, exposure, lets you write keyword tags.
+- **Burst grouping** — photos shot within 5 seconds of each other get a `◈N` badge. Hover any burst card and all its siblings light up in amber so you can compare the group and pick the best one with one decision instead of N.
 - **Rotation** — `⌥←` / `⌥→` rotates via EXIF orientation.
 - **Drag-drop ingest** — drop a folder on the window, it loads instantly. Recent shoots on the welcome screen.
 - **Native macOS feel** — real menu bar, dock icon, notifications on long operations, window-state persistence.
@@ -68,11 +69,11 @@ It is not a RAW developer — Lightroom (or Capture One, or Photoshop) is. It's 
 
 | Platform                  | File                    | Notes                        |
 | ------------------------- | ----------------------- | ---------------------------- |
-| **macOS (Apple Silicon)** | `Shelf-1.0.5-arm64.dmg` | Native for M-series Macs     |
-| **macOS (Intel)**         | `Shelf-1.0.5-x64.dmg`   | For Intel Macs               |
-| **Windows 10/11**         | `Shelf-Setup-1.0.5.exe` | NSIS installer, x64          |
-| **Linux — AppImage**      | `Shelf-1.0.5.AppImage`  | Universal, no install needed |
-| **Linux — Debian/Ubuntu** | `shelf_1.0.5_amd64.deb` | `sudo dpkg -i`               |
+| **macOS (Apple Silicon)** | `Shelf-1.1.0-arm64.dmg` | Native for M-series Macs     |
+| **macOS (Intel)**         | `Shelf-1.1.0-x64.dmg`   | For Intel Macs               |
+| **Windows 10/11**         | `Shelf-Setup-1.1.0.exe` | NSIS installer, x64          |
+| **Linux — AppImage**      | `Shelf-1.1.0.AppImage`  | Universal, no install needed |
+| **Linux — Debian/Ubuntu** | `shelf_1.1.0_amd64.deb` | `sudo dpkg -i`               |
 
 Latest release: **[GitHub Releases →](https://github.com/servicedaemon/photography-shElf/releases/latest)**
 
@@ -94,7 +95,7 @@ Latest release: **[GitHub Releases →](https://github.com/servicedaemon/photogr
 
 ### Installing on Windows
 
-1. Download `Shelf-Setup-1.0.5.exe` from the releases page.
+1. Download `Shelf-Setup-1.1.0.exe` from the releases page.
 2. Double-click to run the installer. Follow the prompts.
 3. **First launch**: Windows SmartScreen will warn _"Windows protected your PC."_
    Click **More info** → **Run anyway**. _This is needed once because the app isn't code-signed. After the first approval, double-click works forever._
@@ -109,16 +110,16 @@ Latest release: **[GitHub Releases →](https://github.com/servicedaemon/photogr
 
 **AppImage (any distro):**
 
-1. Download `Shelf-1.0.5.AppImage` from the releases page.
-2. `chmod +x Shelf-1.0.5.AppImage && ./Shelf-1.0.5.AppImage`
+1. Download `Shelf-1.1.0.AppImage` from the releases page.
+2. `chmod +x Shelf-1.1.0.AppImage && ./Shelf-1.1.0.AppImage`
 3. Most desktop environments let you double-click AppImages directly after marking executable.
 
 > **If the AppImage fails with a FUSE error** on Ubuntu 24.04+, install the FUSE2 compatibility package: `sudo apt-get install libfuse2`. Or run it with `--no-sandbox` as a temporary workaround.
 
 **Debian/Ubuntu (.deb):**
 
-1. Download `shelf_1.0.5_amd64.deb` from the releases page.
-2. `sudo dpkg -i shelf_1.0.5_amd64.deb`
+1. Download `shelf_1.1.0_amd64.deb` from the releases page.
+2. `sudo dpkg -i shelf_1.1.0_amd64.deb`
 3. Launch from your application menu or run `shelf` in a terminal.
 
 Optional for DNG conversion: install `dnglab` from the [dnglab releases](https://github.com/dnglab/dnglab/releases) and put it on your PATH, or `cargo install dnglab` if you have Rust installed.

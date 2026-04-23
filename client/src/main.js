@@ -581,10 +581,11 @@ async function loadSource(dir) {
     const data = await res.json();
     const images = Array.isArray(data) ? data : data.images;
     const stage = Array.isArray(data) ? 'CULL' : data.stage;
+    const bursts = Array.isArray(data) ? [] : data.bursts || [];
 
     mode = 'card';
     bus.emit(EVENTS.MODE_CHANGED, { newMode: 'card', newSource: source, newFolder: '', stage });
-    setGridData(images, source, '', 'card');
+    setGridData(images, source, '', 'card', bursts);
     renderHeader();
     // Store the shoot ROOT, not the specific sub-folder. When the user
     // later clicks a recent shoot, the picker logic resolves to the best
@@ -1218,7 +1219,8 @@ async function refresh() {
     const res = await fetch(`/api/images?source=${encodeURIComponent(source)}`);
     const data = await res.json();
     const images = Array.isArray(data) ? data : data.images;
-    setGridData(images, source, '', 'card');
+    const bursts = Array.isArray(data) ? [] : data.bursts || [];
+    setGridData(images, source, '', 'card', bursts);
     renderHeader();
   }
 }
