@@ -1,8 +1,16 @@
 # CLIP Similarity Grouping — Design Brainstorm
 
-**Status:** Awaiting user (Ava) review. No code changes yet.
-**Date:** 2026-04-22
+**Status:** ✅ Ava-reviewed 2026-04-23. Decisions locked below. Ready for implementation plan.
+**Date:** 2026-04-22 (drafted) / 2026-04-23 (decisions)
 **Goal:** Cluster near-duplicate photos so culling a 12-frame burst becomes one decision instead of twelve.
+
+## Decisions (Ava, 2026-04-23)
+
+1. **`.shelf/embeddings.bin` at the shoot folder root** — matches the "filesystem is the database" philosophy. Travels with the shoot, survives reinstalls. No central DB.
+2. **Bundle the 28MB MobileCLIP-S0 model into the app** — no first-run download dance. DMG / EXE / AppImage / deb each grow by ~28MB, which is fine.
+3. **Tooltip popup when groups detected, user opts in — not auto-on.** When embedding completes and ≥2 clusters of ≥2 photos exist, show an ambient tooltip: *"Found N groups of similar photos — switch to Group Mode?"* User clicks to enter Group Mode or dismisses. No forced layout change.
+4. **Fixed 0.95 threshold for MVP.** Same-pose bursts only. Revisit after real use.
+5. **Progress pill in header; elf unchanged.** A small fading-in pill like `Grouping: 145/400` appears when embedding starts and fades out when done. One sparkle animation on completion. The pixel elf stays reactive to marking actions, not background tasks.
 
 ## Three candidate approaches
 
