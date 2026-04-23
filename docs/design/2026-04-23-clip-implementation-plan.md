@@ -1,8 +1,17 @@
 # CLIP Similarity Grouping — Implementation Plan for v1.1.0
 
-**Status:** Plan complete, awaiting implementation kickoff.
+**Status:** Plan complete + pressure-tested. Awaiting implementation kickoff.
 **Date:** 2026-04-23
 **Companion doc:** [2026-04-22-clip-similarity-brainstorm.md](2026-04-22-clip-similarity-brainstorm.md) — decisions locked there.
+**Revision history:** Drafted by sonnet · pressure-tested by Opus + sonnet together · six real bugs fixed in round 1 (model source was fabricated, preprocessing normalization was wrong, input size was 224 vs actual 256, binary-rewrite was too aggressive, extractJpeg temp leak, S0-vs-S2 decision was pre-made instead of bench-driven). Applied fixes inline.
+
+## Pre-commit-1 verification (do these BEFORE writing any code)
+
+1. **Locate the actual ONNX file.** `apple/mobileclip` on HuggingFace has PyTorch weights only — no INT8 ONNX. Check `Xenova/mobileclip` first (community, Apache-2.0). Record exact filename and input tensor shape (read from ONNX metadata via `onnxruntime`). If no suitable pre-converted file exists, fall back: PyTorch export via Apple's official repo + `onnxruntime.quantization` INT8 post-training.
+2. **Confirm input size and preprocessing from the actual ONNX file's input tensor spec.** MobileCLIP expects 256×256 (not 224×224) and OpenAI CLIP normalization: mean = (0.48145466, 0.4578275, 0.40821073), std = (0.26862954, 0.26130258, 0.27577711). Don't trust this plan — read the tensor shape from the model at commit-1 time.
+3. **Confirm license** of whatever community ONNX we land on.
+
+Nothing gets committed in commit 1 until all three are confirmed.
 
 ## One-sentence summary
 
@@ -30,8 +39,10 @@ Add `onnxruntime-node` + bundled MobileCLIP-S0 INT8 (~28MB), mirror the `server/
 
 1. **Native module per-arch** — `onnxruntime-node` ships separate prebuilds for darwin-arm64, darwin-x64, win32-x64, linux-x64. `npm install` on the CI runner picks up the right one. Universal macOS builds are deferred out of scope.
 2. **Model load time on first open** — ~500ms cold on M2. Lazy-load on first `/ensure` call, NOT at server start.
-3. **Sharp RAW decoding** — prefer the embedded-JPEG extraction path from `thumbnails.js`; fall back to libvips direct only if that fails.
-4. **Model file in git** — 28MB binary. Need git-LFS or direct commit. Decision in commit 1.
+3. **Sharp RAW decoding** — prefer the embedded-JPEG extraction path from `thumbnails.js`; fall back to libvips direct only if that fails. `extractJpeg` returns a temp file path and must be `unlink`ed in a `finally` after use.
+4. **Silent preprocessing bug** — the biggest risk. If input size or normalization is wrong, embeddings look plausible but clusters at 0.95 threshold are meaningless. Read the ONNX's input tensor spec, don't guess.
+5. **Model file in git** — direct commit (no LFS). 28-55MB is acceptable for a personal-tool repo.
+6. **S0 vs S2 quality** — S0 may not discriminate well enough for Ava's subtle studio-shot bursts. Decision deferred to commit 2 bench validation.
 
 ## Out of scope (explicitly)
 
@@ -45,13 +56,17 @@ User-adjustable threshold slider · Pick-best-automatically · Group-level batch
 
 Add to `package.json` `"dependencies"`: `"onnxruntime-node": "1.21.0"`. Ships prebuilt native binaries for darwin-arm64, darwin-x64, win32-x64, linux-x64.
 
-### 2. Model sourcing
+### 2. Model sourcing (REVISED)
 
-**Source:** Apple's MobileCLIP-S0 ONNX INT8 export from HuggingFace (`apple/mobileclip` repo, `mobileclip_s0_image_encoder_int8.onnx`). License: Apple MIT (permissive, bundling allowed). Size: ~28MB.
+**Source:** MobileCLIP-S0 ONNX INT8 export. Exact file + provenance must be verified before commit 1 — see pre-commit verification above. Likely candidates in order: `Xenova/mobileclip` on HuggingFace (community, Apache-2.0), or self-converted export from Apple's official `ml-mobileclip` PyTorch weights + `onnxruntime.quantization`. License: Apple MIT inherited.
 
-**Repo location:** `electron/models/mobileclip-s0-int8.onnx`. Commit directly unless git-LFS is preferred — decide in commit 1.
+**S0 vs S2 is bench-driven, not pre-decided.** Default: ship S0 (~28MB). In commit 2, run the bench script on one of Ava's real test shoots and hand-verify that known same-pose bursts cluster correctly at 0.95. If S0 produces split clusters on obvious bursts, swap to S2 (~55MB) before commit 3. The 27MB delta is rounding-error on a 180MB DMG; quality matters more than size for this feature.
 
-**Build config:** add `"electron/models/**/*"` to both `asarUnpack` and `files` in `package.json`. Resolve path at runtime with the same asar-unpacked pattern already used for `dist/`:
+**git-LFS: NO. Direct commit.** Personal-tool repo, 28-55MB is acceptable, LFS adds clone-time friction that isn't worth the savings.
+
+**Repo location:** `electron/models/mobileclip-s0-int8.onnx` (or `-s2-int8.onnx`).
+
+**Build config:** add `"electron/models/**/*"` to `asarUnpack`. The existing `"electron/**/*"` in `files` already covers it. Resolve at runtime with the standard asar-unpacked pattern:
 
 ```js
 const modelPath = path.join(app.getAppPath(), 'electron/models/mobileclip-s0-int8.onnx')
@@ -66,27 +81,30 @@ Mirror `thumbnails.js` exactly. Module-scope semaphore with `MAX_CONCURRENT = 8`
 
 **`loadModel()`** — lazy singleton. Dynamic import `onnxruntime-node`, create `InferenceSession` with `executionProviders: ['cpu']` and `graphOptimizationLevel: 'all'`.
 
-**`embedImage(filePath)`** — returns `Float32Array(512)`:
+**`embedImage(filePath)`** — returns `Float32Array(512)`. REVISED preprocessing:
+
 1. Acquire semaphore.
-2. `sharp(filePath).resize(224, 224, { fit: 'fill' }).raw().toBuffer()` — prefer embedded-JPEG extraction path from `thumbnails.js` first (export `extractJpeg` from there).
-3. uint8 → float32, divide by 255 (MobileCLIP-S0 expects 0-1, no further normalization).
-4. Transpose HWC → CHW, build NCHW tensor `[1, 3, 224, 224]`.
-5. `session.run({ input: tensor })`, output key is `output`.
-6. L2-normalize in-place.
-7. Release. Return `Float32Array`.
+2. `const extracted = await extractJpeg(filePath)` (exported from `thumbnails.js` — needs to be added to its exports in commit 1/2). Wrap steps 3-7 in `try { ... } finally { if (extracted) fs.unlinkSync(extracted); }` to avoid temp-file leak.
+3. `sharp(extracted || filePath).resize(256, 256, { fit: 'fill' }).raw().toBuffer()` — **256×256** is MobileCLIP's native input size. Confirm from ONNX input tensor spec at verification time.
+4. uint8 → float32 with **OpenAI CLIP normalization per channel**: `(pixel / 255 - mean[c]) / std[c]` where `mean = [0.48145466, 0.4578275, 0.40821073]`, `std = [0.26862954, 0.26130258, 0.27577711]`. MobileCLIP inherits this normalization. **Skipping normalization produces plausible-looking but uncalibrated embeddings — the 0.95 threshold becomes meaningless.**
+5. Transpose HWC → CHW, build NCHW tensor `[1, 3, 256, 256]`.
+6. `session.run({ input: tensor })`, output key is `output`.
+7. L2-normalize in-place. Release semaphore. Return `Float32Array(512)`.
 
-**`ensureEmbeddings(shootPath, progressCallback)`:**
+**`ensureEmbeddings(shootPath, progressCallback)`:** REVISED to batch writes.
+
 1. Read `.shelf/embeddings.bin` header, parse JSON index, identify missing filenames.
-2. For each missing image: `embedImage` with semaphore, append to binary (atomic rewrite of full file — 400×2048 = ~800KB, fast enough), call `progressCallback({done, total})`.
-3. On per-image error: log warn, skip, continue.
-4. After all done: call `clusterEmbeddings`, cache in module Map keyed by `shootPath`.
+2. For each missing image: `embedImage` with semaphore, **accumulate in-memory**, call `progressCallback({done, total})`.
+3. **Flush to disk every 20 completions (and on final completion)** via `atomicWrite`. A per-image rewrite on a 400-photo shoot = ~160MB of I/O (bad on SD cards / NAS); batching to every-20 reduces this 20× with acceptable crash loss (up to 19 embeddings, auto-recomputed on reopen since `ensureEmbeddings` is idempotent).
+4. On per-image error: log warn, skip, continue.
+5. After all done: call `clusterEmbeddings`, cache in module Map keyed by `shootPath`.
 
-**`clusterEmbeddings(embeddings, threshold = 0.95)`** — greedy agglomerative:
-- Walk filenames in sorted order (stable).
-- For each image: cosine similarity (dot product of L2-normalized vectors) against each existing cluster centroid. Join first cluster ≥ threshold, else new singleton.
-- Update centroid as running mean, re-L2-normalize.
+**`clusterEmbeddings(embeddings, threshold = 0.95)`** — REVISED to single-pass, no centroid drift:
+- Walk filenames in sorted order (stable, reproducible).
+- For each image: cosine similarity (dot product of L2-normalized vectors) against **each existing cluster's FIRST member** (index 0), not a running centroid. Join first cluster where similarity ≥ threshold, else start new cluster.
+- Why no centroid update: at 0.95 threshold with studio bursts, centroid drift is mild (members typically 0.97-0.99 similar to anchor), but drift can still misclassify frames 18-20 of a long burst as a separate cluster. Single-pass fixed-anchor is predictable, simpler, and easier to unit-test.
 - Sort clusters by `members.length` desc, singletons to end.
-- Returns `[{members: [filenames], centroid: Float32Array}]`.
+- Returns `[{members: [filenames]}]`. (No centroid in the return — we don't need it downstream.)
 
 ### 4. Binary file format — `.shelf/embeddings.bin`
 
