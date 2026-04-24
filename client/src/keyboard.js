@@ -12,7 +12,11 @@ import {
   toggleAllStacks,
   promoteCoverAtCurrent,
   jumpToNextStack,
+  getStackIndices,
+  getStackIdFor,
+  isStackCollapsed,
 } from './grid.js';
+import { getSelectionRange } from './selection.js';
 import { isLightboxOpen, navigateLightbox, toggleLightbox } from './lightbox.js';
 import {
   keepAndAdvance,
@@ -175,41 +179,64 @@ function handleKeydown(e) {
   }
 }
 
-async function rotateImage(direction) {
+// Targets for rotation, given the current selection context:
+// - Range selection active → all indices in range
+// - Focused card is a collapsed stack cover → all stack member indices
+// - Otherwise → just the focused index
+function rotationTargets() {
   const images = getImages();
   const index = getSelectedIndex();
-  if (index < 0 || index >= images.length) return;
+  if (index < 0 || index >= images.length) return [];
 
-  const img = images[index];
+  const range = getSelectionRange();
+  if (range) {
+    const out = [];
+    for (let i = range.start; i <= range.end; i++) out.push(i);
+    return out;
+  }
+
+  const filename = images[index].filename;
+  const stackId = getStackIdFor(filename);
+  if (stackId !== null && isStackCollapsed(stackId)) {
+    return getStackIndices(stackId);
+  }
+  return [index];
+}
+
+async function rotateImage(direction) {
+  const images = getImages();
   const source = getSource();
+  const targets = rotationTargets();
+  if (targets.length === 0) return;
 
-  try {
-    const res = await fetch('/api/rotate', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ filename: img.filename, source, direction }),
-    });
+  const bust = `&_t=${Date.now()}`;
 
-    if (!res.ok) return;
+  // Fire all rotations in parallel — server handles file-level locking per image
+  await Promise.all(
+    targets.map(async (idx) => {
+      const img = images[idx];
+      try {
+        const res = await fetch('/api/rotate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ filename: img.filename, source, direction }),
+        });
+        if (!res.ok) return;
 
-    // Bust the browser cache by appending a timestamp to thumb/preview URLs
-    const bust = `&_t=${Date.now()}`;
-    const thumbImg = document.querySelector(`.card[data-index="${index}"] img`);
-    if (thumbImg) {
-      thumbImg.src = thumbImg.src.replace(/&_t=\d+/, '') + bust;
-    }
+        const thumbImg = document.querySelector(`.card[data-index="${idx}"] img`);
+        if (thumbImg) thumbImg.src = thumbImg.src.replace(/&_t=\d+/, '') + bust;
 
-    // If lightbox is open, refresh its image too
-    if (isLightboxOpen()) {
-      const lbImg = document.getElementById('lb-img');
-      if (lbImg) {
-        lbImg.src = lbImg.src.replace(/&_t=\d+/, '') + bust;
+        bus.emit(EVENTS.IMAGE_ROTATED, { index: idx, direction });
+      } catch {
+        /* silently fail this one, continue others */
       }
-    }
+    }),
+  );
 
-    bus.emit(EVENTS.IMAGE_ROTATED, { index, direction });
-  } catch {
-    // silently fail
+  // Refresh lightbox preview if open (only once — the focused card)
+  if (isLightboxOpen()) {
+    const lbImg = document.getElementById('lb-img');
+    if (lbImg) lbImg.src = lbImg.src.replace(/&_t=\d+/, '') + bust;
   }
 }
 

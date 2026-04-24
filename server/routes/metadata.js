@@ -85,7 +85,39 @@ metadataRoutes.get('/metadata/:filename', async (req, res) => {
   }
 });
 
-// Bulk write tags to files
+// Sanitize tag values — strip shell metacharacters
+function sanitize(v) {
+  if (typeof v === 'string') return v.replace(/[;&|`$(){}[\]<>\\]/g, '');
+  if (Array.isArray(v)) return v.map(sanitize);
+  return v;
+}
+
+// Bulk write tags to files.
+//
+// Accepts legacy API shape: { Keywords: [...] } REPLACE,
+// { 'Keywords+': [...] } ADD, { 'Keywords-': [...] } REMOVE.
+//
+// Under the hood we ALWAYS read current keywords, compute the merged set,
+// and write back with plain `Keywords: [...]`. Why: `Keywords+` append
+// silently no-ops on CR3 files (exiftool quirk — the append path writes to
+// XMP/IPTC which doesn't merge back into the CR3 container). Read-merge-
+// write works across all formats uniformly.
+async function mergeKeywords(filePath, addKeywords, removeKeywords) {
+  const tags = await exiftool.read(filePath);
+  // exiftool returns string for single keyword, array for multiple, undefined if none
+  let current = tags.Keywords;
+  if (current == null) current = [];
+  else if (!Array.isArray(current)) current = [current];
+
+  // Remove first (so re-adding a removed tag in the same call works predictably)
+  let next = removeKeywords.length > 0 ? current.filter((k) => !removeKeywords.includes(k)) : [...current];
+  // Add (dedupe)
+  for (const k of addKeywords) {
+    if (!next.includes(k)) next.push(k);
+  }
+  return next;
+}
+
 metadataRoutes.post('/metadata/tag', async (req, res) => {
   const { filenames, source, tags } = req.body;
 
@@ -97,18 +129,20 @@ metadataRoutes.post('/metadata/tag', async (req, res) => {
     return res.status(400).json({ error: 'Invalid filename in list' });
   }
 
-  // Sanitize tag values — strip shell metacharacters
-  const safeTags = {};
-  for (const [key, value] of Object.entries(tags)) {
-    if (typeof value === 'string') {
-      safeTags[key] = value.replace(/[;&|`$(){}[\]<>\\]/g, '');
-    } else if (Array.isArray(value)) {
-      safeTags[key] = value.map((v) =>
-        typeof v === 'string' ? v.replace(/[;&|`$(){}[\]<>\\]/g, '') : v,
-      );
-    } else {
-      safeTags[key] = value;
-    }
+  // Parse the tags payload into keyword add/remove sets plus non-keyword tags.
+  const addKeywords = Array.isArray(tags['Keywords+'])
+    ? tags['Keywords+'].map(sanitize).filter((s) => typeof s === 'string' && s.length > 0)
+    : [];
+  const removeKeywords = Array.isArray(tags['Keywords-'])
+    ? tags['Keywords-'].map(sanitize).filter((s) => typeof s === 'string' && s.length > 0)
+    : [];
+  const replaceKeywords = Array.isArray(tags.Keywords) ? tags.Keywords.map(sanitize) : null;
+
+  // Non-keyword tags (Title, Description, Rating, etc.) pass through as-is.
+  const otherTags = {};
+  for (const [k, v] of Object.entries(tags)) {
+    if (k === 'Keywords' || k === 'Keywords+' || k === 'Keywords-') continue;
+    otherTags[k] = sanitize(v);
   }
 
   const basePath = path.resolve(source);
@@ -121,7 +155,19 @@ metadataRoutes.post('/metadata/tag', async (req, res) => {
       continue;
     }
     try {
-      await exiftool.write(filePath, safeTags, { writeArgs: ['-overwrite_original'] });
+      const writeTags = { ...otherTags };
+
+      if (replaceKeywords !== null) {
+        // Explicit replace — honor as given
+        writeTags.Keywords = replaceKeywords;
+      } else if (addKeywords.length > 0 || removeKeywords.length > 0) {
+        // Read-merge-write, uniform across all formats (CR3 safe).
+        writeTags.Keywords = await mergeKeywords(filePath, addKeywords, removeKeywords);
+      }
+
+      if (Object.keys(writeTags).length > 0) {
+        await exiftool.write(filePath, writeTags, { writeArgs: ['-overwrite_original'] });
+      }
       results.push({ filename, ok: true });
     } catch (e) {
       results.push({ filename, ok: false, error: e.message });
