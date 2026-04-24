@@ -24,11 +24,9 @@ export default async function afterPack(context) {
 
   console.log(`[after-pack] ad-hoc codesigning ${appPath}`);
   try {
-    await execFileAsync(
-      'codesign',
-      ['--force', '--deep', '--sign', '-', appPath],
-      { stdio: 'inherit' },
-    );
+    await execFileAsync('codesign', ['--force', '--deep', '--sign', '-', appPath], {
+      stdio: 'inherit',
+    });
     console.log(`[after-pack] codesign complete`);
   } catch (e) {
     console.warn(`[after-pack] codesign failed (non-fatal):`, e.message);

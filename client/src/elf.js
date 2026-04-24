@@ -10,60 +10,13 @@ const PIXEL = {
 };
 
 const GRIDS = {
-  idle: [
-    'M.....M',
-    'MLLLLLM',
-    '.LLLLL.',
-    'LLBLBLL',
-    'LLLLLLL',
-    '.LLLLL.',
-  ],
-  reading: [
-    'M.....M',
-    'MLLLLLM',
-    '.LLLLL.',
-    'LLLLLLL',
-    'LLBLBLL',
-    '.LLLLL.',
-  ],
-  sleeping: [
-    'M.....M',
-    'MLLLLLM',
-    '.LLLLL.',
-    'LLLLLLL',
-    'LLLLLLL',
-    '.LLLLL.',
-  ],
-  scribbling_1: [
-    'M.....M',
-    'MLLLLLM',
-    '.LLLLL.',
-    'LLBLBLL',
-    'LLLLLLL',
-    '.LLLLL.',
-  ],
-  scribbling_2: [
-    'M.....M',
-    'MLLLLLM',
-    '.LLLLL.',
-    'LLBLBLL',
-    'LLLLLLL',
-    '.LLLLL.',
-  ],
-  peeking: [
-    'M.....M',
-    'MLLLLLM',
-    '.LLLLL.',
-    'LLBLBLL',
-  ],
-  waving: [
-    'M.....M',
-    'MLLLLLM',
-    '.LLLLL.',
-    'LLBLLLL',
-    'LLLLLLL',
-    '.LLLLL.',
-  ],
+  idle: ['M.....M', 'MLLLLLM', '.LLLLL.', 'LLBLBLL', 'LLLLLLL', '.LLLLL.'],
+  reading: ['M.....M', 'MLLLLLM', '.LLLLL.', 'LLLLLLL', 'LLBLBLL', '.LLLLL.'],
+  sleeping: ['M.....M', 'MLLLLLM', '.LLLLL.', 'LLLLLLL', 'LLLLLLL', '.LLLLL.'],
+  scribbling_1: ['M.....M', 'MLLLLLM', '.LLLLL.', 'LLBLBLL', 'LLLLLLL', '.LLLLL.'],
+  scribbling_2: ['M.....M', 'MLLLLLM', '.LLLLL.', 'LLBLBLL', 'LLLLLLL', '.LLLLL.'],
+  peeking: ['M.....M', 'MLLLLLM', '.LLLLL.', 'LLBLBLL'],
+  waving: ['M.....M', 'MLLLLLM', '.LLLLL.', 'LLBLLLL', 'LLLLLLL', '.LLLLL.'],
 };
 
 function buildSvgRects(grid, ps) {
@@ -181,7 +134,16 @@ export function createElf(container, pose = 'idle', pixelSize = 4) {
   }
 
   // Easter egg: click to cycle poses
-  const poses = ['idle', 'reading', 'sleeping', 'scribbling', 'peeking', 'waving', 'confused', 'sparkle'];
+  const poses = [
+    'idle',
+    'reading',
+    'sleeping',
+    'scribbling',
+    'peeking',
+    'waving',
+    'confused',
+    'sparkle',
+  ];
   let poseIndex = poses.indexOf(pose);
   container.addEventListener('click', () => {
     poseIndex = (poseIndex + 1) % poses.length;

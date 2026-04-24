@@ -14,19 +14,18 @@ class EventBus extends EventTarget {
 
 export const bus = new EventBus();
 
-// Event names
+// Event names — only what's actually wired.
 export const EVENTS = {
   // Data
-  IMAGES_LOADED: 'images:loaded',
   STATE_CHANGED: 'state:changed',
   IMAGE_MARKED: 'image:marked',
   BATCH_MARKED: 'batch:marked',
   IMAGE_ROTATED: 'image:rotated',
   UNDO: 'undo',
 
-  // Navigation
+  // Navigation + selection
   SELECT: 'select',
-  NAVIGATE: 'navigate',
+  SELECTION_CHANGED: 'selection:changed',
 
   // UI
   MODE_CHANGED: 'mode:changed',
@@ -34,20 +33,11 @@ export const EVENTS = {
   LIGHTBOX_OPEN: 'lightbox:open',
   LIGHTBOX_CLOSE: 'lightbox:close',
   SIDEBAR_TOGGLE: 'sidebar:toggle',
-  SHORTCUTS_TOGGLE: 'shortcuts:toggle',
   TOAST: 'toast',
 
   // Actions
   STAGE_CHANGED: 'stage:changed',
   MARK_ROLLBACK: 'mark:rollback',
-
-  // Actions
-  SORT_START: 'sort:start',
-  SORT_COMPLETE: 'sort:complete',
   REFRESH: 'refresh',
-  CONVERT_START: 'convert:start',
   CONVERT_COMPLETE: 'convert:complete',
-
-  // Selection
-  SELECTION_CHANGED: 'selection:changed',
 };

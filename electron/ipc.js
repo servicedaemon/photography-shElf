@@ -52,7 +52,9 @@ export function registerIpc(getMainWindow) {
           continue;
         }
         let stat;
-        try { stat = fs.statSync(p); } catch {
+        try {
+          stat = fs.statSync(p);
+        } catch {
           errors.push({ path: p, error: 'not found' });
           continue;
         }

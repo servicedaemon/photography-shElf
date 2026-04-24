@@ -13,9 +13,9 @@ import { bus, EVENTS } from './events.js';
 let navEl = null;
 let currentSource = '';
 let loadSourceFn = null;
-let currentCtx = null;      // cached last shoot-context response
-let inFlightAbort = null;   // cancels previous fetch on rapid refresh
-let refreshTimer = null;    // debounce
+let currentCtx = null; // cached last shoot-context response
+let inFlightAbort = null; // cancels previous fetch on rapid refresh
+let refreshTimer = null; // debounce
 
 const FOLDER_ORDER = ['unsorted', 'keeps', 'favorites', 'rejects', 'edited'];
 const FOLDER_LABEL = {
@@ -45,7 +45,10 @@ function scheduleRefresh() {
 
 async function refresh() {
   if (!navEl) return;
-  if (!currentSource) { hide(); return; }
+  if (!currentSource) {
+    hide();
+    return;
+  }
 
   // Cancel any in-flight request so we don't race each other.
   if (inFlightAbort) inFlightAbort.abort();
@@ -54,15 +57,23 @@ async function refresh() {
 
   let ctx;
   try {
-    const res = await fetch(`/api/shoot-context?source=${encodeURIComponent(currentSource)}`, { signal });
-    if (!res.ok) { hide(); return; }
+    const res = await fetch(`/api/shoot-context?source=${encodeURIComponent(currentSource)}`, {
+      signal,
+    });
+    if (!res.ok) {
+      hide();
+      return;
+    }
     ctx = await res.json();
   } catch (e) {
     if (e.name !== 'AbortError') hide();
     return;
   }
 
-  if (!ctx.insideShoot) { hide(); return; }
+  if (!ctx.insideShoot) {
+    hide();
+    return;
+  }
   currentCtx = ctx;
   render(ctx);
 }
@@ -144,7 +155,9 @@ async function emptyRejects(rejectSibling) {
   // potentially stale cached one.
   let files;
   try {
-    const res = await fetch(`/api/list-folder-files?path=${encodeURIComponent(rejectSibling.path)}`);
+    const res = await fetch(
+      `/api/list-folder-files?path=${encodeURIComponent(rejectSibling.path)}`,
+    );
     const data = await res.json();
     files = data.files || [];
   } catch {
@@ -234,7 +247,8 @@ function confirmEmptyRejects(count, path) {
     modal.appendChild(p1);
 
     const p2 = document.createElement('p');
-    p2.style.cssText = 'color:var(--ink-faint);font-size:11px;margin-top:10px;font-family:var(--font-mono)';
+    p2.style.cssText =
+      'color:var(--ink-faint);font-size:11px;margin-top:10px;font-family:var(--font-mono)';
     p2.textContent = friendlyPath(path);
     modal.appendChild(p2);
 
@@ -261,8 +275,10 @@ function confirmEmptyRejects(count, path) {
     // Keyboard: Enter confirms (only when Trash button is focused via Tab),
     // Escape always cancels. This matches the behavior of showConfirmModal.
     const onKey = (e) => {
-      if (e.key === 'Escape') { e.preventDefault(); close(false); }
-      else if (e.key === 'Enter' && document.activeElement === confirm) {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        close(false);
+      } else if (e.key === 'Enter' && document.activeElement === confirm) {
         e.preventDefault();
         close(true);
       }
@@ -274,6 +290,8 @@ function confirmEmptyRejects(count, path) {
       overlay.classList.remove('active');
       resolve(v);
     };
-    overlay.addEventListener('click', (e) => { if (e.target === overlay) close(false); });
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) close(false);
+    });
   });
 }

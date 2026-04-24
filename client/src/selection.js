@@ -14,18 +14,13 @@ import {
 } from './grid.js';
 import { enqueueMark } from './mark-queue.js';
 
-let lastClickIndex = -1;
-let source = '';
-
 let selectionAnchor = -1; // first shift+click
 let selectionRange = null; // { start, end } inclusive, or null
 
 export function initSelection() {
   bus.on(EVENTS.SELECT, handleSelect);
   bus.on('select:favorite', ({ index }) => toggleFavorite(index));
-  bus.on(EVENTS.MODE_CHANGED, ({ newSource }) => {
-    source = newSource;
-    lastClickIndex = -1;
+  bus.on(EVENTS.MODE_CHANGED, () => {
     selectionAnchor = -1;
     if (selectionRange !== null) {
       selectionRange = null;
@@ -51,7 +46,6 @@ function handleSelect({ index, meta, shift }) {
     }
     bus.emit(EVENTS.SELECTION_CHANGED, { range: selectionRange });
     setSelectedIndex(index);
-    lastClickIndex = index;
     return;
   }
 
@@ -71,7 +65,6 @@ function handleSelect({ index, meta, shift }) {
     newStatus = currentStatus === 'keep' ? 'unmarked' : 'keep';
   }
   markSingle(index, newStatus);
-  lastClickIndex = index;
   setSelectedIndex(index);
 }
 

@@ -53,7 +53,9 @@ test('inline shoot: only unsorted populated → CULL (from shoot root)', () => {
     assert.equal(detectStage(path.join(shoot, 'unsorted')), 'CULL');
     assert.equal(detectStage(path.join(shoot, 'keeps')), 'CULL');
     assert.equal(detectStage(path.join(shoot, 'rejects')), 'CULL');
-  } finally { cleanup(); }
+  } finally {
+    cleanup();
+  }
 });
 
 test('inline shoot: keeps populated → HEROES (stage stays HEROES across sub-folders)', () => {
@@ -63,7 +65,9 @@ test('inline shoot: keeps populated → HEROES (stage stays HEROES across sub-fo
     assert.equal(detectStage(path.join(shoot, 'unsorted')), 'HEROES');
     assert.equal(detectStage(path.join(shoot, 'keeps')), 'HEROES');
     assert.equal(detectStage(path.join(shoot, 'rejects')), 'HEROES');
-  } finally { cleanup(); }
+  } finally {
+    cleanup();
+  }
 });
 
 test('inline shoot: favorites populated → FINAL (regardless of current sub-folder)', () => {
@@ -74,14 +78,18 @@ test('inline shoot: favorites populated → FINAL (regardless of current sub-fol
     assert.equal(detectStage(path.join(shoot, 'keeps')), 'FINAL');
     assert.equal(detectStage(path.join(shoot, 'favorites')), 'FINAL');
     assert.equal(detectStage(path.join(shoot, 'rejects')), 'FINAL');
-  } finally { cleanup(); }
+  } finally {
+    cleanup();
+  }
 });
 
 test('inline shoot: edited populated → FINAL', () => {
   const { shoot, cleanup } = makeShoot('edited-pop', { edited: 1 });
   try {
     assert.equal(detectStage(shoot), 'FINAL');
-  } finally { cleanup(); }
+  } finally {
+    cleanup();
+  }
 });
 
 test('random folder (not inside a shoot) → CULL', () => {

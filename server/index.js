@@ -52,8 +52,9 @@ app.use('/api', convertRoutes);
 
 // In production (packaged Electron), serve the Vite-built static files + SPA fallback.
 if (process.env.NODE_ENV === 'production') {
-  const distPath = process.env.SHELF_DIST_PATH
-    || path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'dist');
+  const distPath =
+    process.env.SHELF_DIST_PATH ||
+    path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'dist');
   app.use(express.static(distPath));
   app.get(/^(?!\/api\/).*/, (_req, res) => {
     res.sendFile(path.join(distPath, 'index.html'));

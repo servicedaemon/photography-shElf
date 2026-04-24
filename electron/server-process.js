@@ -78,7 +78,11 @@ export function stopServer() {
     serverProcess = null;
     proc.kill('SIGTERM');
     setTimeout(() => {
-      try { proc.kill('SIGKILL'); } catch { /* already dead */ }
+      try {
+        proc.kill('SIGKILL');
+      } catch {
+        /* already dead */
+      }
     }, 2000);
   }
 }

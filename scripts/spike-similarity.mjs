@@ -163,7 +163,9 @@ function score(clusters, name) {
   const f1 = precision + recall > 0 ? (2 * precision * recall) / (precision + recall) : 0;
 
   const nonSingleton = clusters.filter((c) => c.length > 1).length;
-  console.log(`  ${name.padEnd(40)} clusters: ${nonSingleton}  TP: ${truePositive}  FP: ${falsePositive}  FN: ${falseNegative}  P: ${precision.toFixed(2)}  R: ${recall.toFixed(2)}  F1: ${f1.toFixed(2)}`);
+  console.log(
+    `  ${name.padEnd(40)} clusters: ${nonSingleton}  TP: ${truePositive}  FP: ${falsePositive}  FN: ${falseNegative}  P: ${precision.toFixed(2)}  R: ${recall.toFixed(2)}  F1: ${f1.toFixed(2)}`,
+  );
 
   return { name, precision, recall, f1, truePositive, falsePositive, falseNegative, clusters };
 }
@@ -214,7 +216,7 @@ async function main() {
 
       // Test multiple thresholds
       console.log('\n  clustering results at various thresholds:');
-      for (const t of [0.70, 0.75, 0.8, 0.85, 0.9, 0.95]) {
+      for (const t of [0.7, 0.75, 0.8, 0.85, 0.9, 0.95]) {
         const clusters = mlClusters(embeddings, t);
         const r = score(clusters, `dinov2 @${t}`);
         modelResults.push({ ...r, loadMs, meanEmb, maxEmb, threshold: t, model: modelId });
@@ -244,11 +246,17 @@ async function main() {
   console.log('\nFirst-principles question: does ML beat free timestamp clustering?');
   if (bestMl && bestTs) {
     if (bestMl.f1 > bestTs.f1 + 0.05) {
-      console.log(`  → Yes, ML worth the complexity: ML F1 ${bestMl.f1.toFixed(2)} vs timestamp F1 ${bestTs.f1.toFixed(2)}`);
+      console.log(
+        `  → Yes, ML worth the complexity: ML F1 ${bestMl.f1.toFixed(2)} vs timestamp F1 ${bestTs.f1.toFixed(2)}`,
+      );
     } else if (bestTs.f1 > bestMl.f1) {
-      console.log(`  → No. Timestamp clustering beats ML (${bestTs.f1.toFixed(2)} vs ${bestMl.f1.toFixed(2)}). Ship timestamp-based first.`);
+      console.log(
+        `  → No. Timestamp clustering beats ML (${bestTs.f1.toFixed(2)} vs ${bestMl.f1.toFixed(2)}). Ship timestamp-based first.`,
+      );
     } else {
-      console.log(`  → Roughly equal on THIS test set. ML may add value for retake cases not represented here.`);
+      console.log(
+        `  → Roughly equal on THIS test set. ML may add value for retake cases not represented here.`,
+      );
     }
   }
 

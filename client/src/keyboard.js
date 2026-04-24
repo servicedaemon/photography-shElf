@@ -15,7 +15,6 @@ import {
   getStackIndices,
   getStackIdFor,
   isStackCollapsed,
-  getStacks,
 } from './grid.js';
 import { getSelectionRange } from './selection.js';
 import { showToast } from './undo.js';

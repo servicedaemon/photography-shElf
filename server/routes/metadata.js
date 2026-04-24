@@ -3,14 +3,9 @@ import path from 'path';
 import fs from 'fs';
 import { exiftool } from 'exiftool-vendored';
 import { invalidateCache } from '../lib/thumbnails.js';
+import { validateFilename } from '../lib/validate.js';
 
 export const metadataRoutes = Router();
-
-const VALID_FILENAME = /^[\w][\w. -]*\.(cr3|cr2|arw|nef|raf|dng|jpg|jpeg|tif|tiff)$/i;
-
-function validateFilename(f) {
-  return VALID_FILENAME.test(f) && !f.includes('..');
-}
 
 // exiftool returns a string for single-value tags, an array for multi-value.
 // Normalize to array for predictable client consumption.

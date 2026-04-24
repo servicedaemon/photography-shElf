@@ -12,9 +12,12 @@ function boundsOnScreen(bounds) {
     const { x, y, width, height } = d.bounds;
     // Require the window's top-left to be within some display
     if (
-      bounds.x >= x - 50 && bounds.x < x + width - 100 &&
-      bounds.y >= y - 50 && bounds.y < y + height - 100
-    ) return true;
+      bounds.x >= x - 50 &&
+      bounds.x < x + width - 100 &&
+      bounds.y >= y - 50 &&
+      bounds.y < y + height - 100
+    )
+      return true;
   }
   return false;
 }

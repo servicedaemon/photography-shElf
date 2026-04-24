@@ -59,11 +59,41 @@ export async function pushRecentShoot(p) {
   }
 }
 
+// Strip a known shoot sub-folder name (keeps, rejects, etc.) from the basename.
+// Mirrors the server-side rule. Older versions of Shelf pushed sub-folder paths
+// into the recent-shoots list — this normalizes existing data on load so
+// returning users don't see "shoot/keeps" + "shoot/rejects" cluttering the
+// welcome screen.
+const SHOOT_SUBS = new Set(['unsorted', 'keeps', 'rejects', 'favorites', 'edited']);
+function normalizeShootPath(p) {
+  if (!p) return p;
+  const trimmed = p.replace(/[/\\]+$/, '');
+  const parts = trimmed.split(/[/\\]/);
+  const base = parts[parts.length - 1].toLowerCase();
+  if (SHOOT_SUBS.has(base)) {
+    parts.pop();
+    return parts.join('/') || trimmed;
+  }
+  return trimmed;
+}
+
 export async function getRecentShoots() {
   try {
     const res = await fetch('/api/config');
     const cfg = await res.json();
-    return Array.isArray(cfg.recentShoots) ? cfg.recentShoots : [];
+    const raw = Array.isArray(cfg.recentShoots) ? cfg.recentShoots : [];
+    // Normalize + dedupe in case older entries leaked sub-folder paths.
+    // Returns shoot ROOTS only — deduped, original order preserved.
+    const seen = new Set();
+    const out = [];
+    for (const p of raw) {
+      const norm = normalizeShootPath(p);
+      if (!seen.has(norm)) {
+        seen.add(norm);
+        out.push(norm);
+      }
+    }
+    return out;
   } catch {
     return [];
   }

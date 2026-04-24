@@ -38,18 +38,25 @@ async function flush() {
 
   try {
     for (const [status, filenames] of groups) {
+      let res;
       if (filenames.length === 1) {
-        await fetch('/api/mark', {
+        res = await fetch('/api/mark', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ filename: filenames[0], status, source }),
         });
       } else {
-        await fetch('/api/mark-batch', {
+        res = await fetch('/api/mark-batch', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ filenames, status, source }),
         });
+      }
+      // fetch only throws on network errors, not on 4xx/5xx responses.
+      // Treat any non-OK status as a sync failure too — we don't want the
+      // UI optimistically showing "keep" when the server rejected the write.
+      if (!res.ok) {
+        throw new Error(`Mark sync failed: ${res.status}`);
       }
     }
   } catch {

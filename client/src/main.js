@@ -9,7 +9,7 @@ import { initFilters } from './filters.js';
 import { initSidebar } from './sidebar.js';
 import { initActions } from './actions.js';
 import { initUndo, showToast } from './undo.js';
-import { initStage, getStage } from './stage.js';
+import { initStage } from './stage.js';
 import { createElf } from './elf.js';
 import { setThumbSize, setTheme, getTheme } from './theme.js';
 import { initMarkQueue } from './mark-queue.js';
@@ -22,20 +22,6 @@ let mode = 'idle'; // idle, loading, card
 let source = '';
 let headerElfHandle = null;
 let elfResetTimer = null;
-
-// Human-readable label for the stage pill's hover tooltip.
-function stageTooltip(stage) {
-  switch (stage) {
-    case 'CULL':
-      return 'CULL — first pass. Decide keep / favorite / reject on every photo. Press K, F, X, U to mark.';
-    case 'HEROES':
-      return 'HEROES — second pass. Pick the best shots from your keeps with F, then Promote to Favorites.';
-    case 'FINAL':
-      return 'FINAL — your favorite shots, ready for editing. Convert to DNG and open in Lightroom.';
-    default:
-      return stage;
-  }
-}
 
 // Briefly switch the header elf's pose, then return to its baseline.
 function flashElfPose(pose, duration = 1400, baseline = 'peeking') {
@@ -79,6 +65,14 @@ document.addEventListener('DOMContentLoaded', async () => {
   bus.on('action:promote-favorites', handlePromoteFavorites);
   bus.on('action:move-to-shoot', handleMoveToShoot);
   bus.on(EVENTS.REFRESH, refresh);
+
+  // Mark sync failed (network error or non-2xx response). The UI was already
+  // updated optimistically — we have to refresh from server to get back in sync.
+  // Better to flicker than to silently leave the user thinking marks were saved.
+  bus.on(EVENTS.MARK_ROLLBACK, () => {
+    showToast('Mark sync failed — restoring from disk', 'error');
+    refresh();
+  });
 
   // Re-render header stats when marks change
   bus.on(EVENTS.IMAGE_MARKED, ({ status }) => {
@@ -929,8 +923,10 @@ async function handleConvert() {
 
     if (!res.ok) {
       if (res.status === 501) {
-        // Use the hint the server sends — it's OS-aware.
-        showToast(data.hint || data.error || 'dnglab is not installed', 'error');
+        // Server replies with a platform-specific hint. Surface it as a real
+        // modal with a copy-to-clipboard install command, not a generic toast —
+        // this is the most common first-run failure for new CR3/ARW/NEF users.
+        await showDnglabMissingModal(data.hint || data.error);
       } else {
         showToast(data.error || 'Conversion failed', 'error');
       }
@@ -1196,7 +1192,9 @@ function showSortBridge(moved, keepsPath) {
   });
 }
 
-function showPromoteBridge(count, folderName) {
+function showPromoteBridge(count, _folderName) {
+  // _folderName is reserved for future use by the bridge UI but not currently
+  // displayed — kept in the signature so callers don't need to change later.
   const overlay = document.getElementById('modal-overlay');
   overlay.innerHTML = `
     <div class="modal" style="text-align:center">
@@ -1248,40 +1246,101 @@ async function refresh() {
 
 // --- Styled modals ---
 
-function showInputModal(title, message, placeholder) {
+// dnglab is the bundled-as-recommendation CLI for converting RAW → DNG.
+// When it's missing, the conversion route returns 501 with a platform-aware
+// hint. Surface that as an actionable modal with a copy-to-clipboard command
+// rather than a buried error toast — this is the most common first-run wall.
+function showDnglabMissingModal(hint) {
   return new Promise((resolve) => {
+    // Detect platform via userAgent — Electron doesn't expose process.platform
+    // to the renderer cleanly. Coarse but reliable enough.
+    const ua = navigator.userAgent;
+    const isMac = /Mac|iPad|iPhone/.test(ua);
+    const isWin = /Win/.test(ua);
+
+    let cmd;
+    let pkgManager;
+    if (isMac) {
+      cmd = 'brew install dnglab';
+      pkgManager = 'Homebrew';
+    } else if (isWin) {
+      cmd = 'choco install dnglab';
+      pkgManager = 'Chocolatey';
+    } else {
+      cmd = '';
+      pkgManager = null;
+    }
+
+    const cmdHtml = cmd
+      ? `<div class="install-cmd-row">
+           <code class="install-cmd">${cmd}</code>
+           <button class="btn btn-muted" id="copy-cmd" title="Copy to clipboard">Copy</button>
+         </div>
+         <p class="install-note">If you don't have ${pkgManager} yet, you can also download a binary from
+         <a href="https://github.com/dnglab/dnglab/releases" id="dnglab-link">dnglab releases</a>
+         and put it on your PATH.</p>`
+      : `<p class="install-note">Download a binary from
+         <a href="https://github.com/dnglab/dnglab/releases" id="dnglab-link">dnglab releases</a>
+         and put it on your PATH.</p>`;
+
     const overlay = document.getElementById('modal-overlay');
     overlay.innerHTML = `
       <div class="modal">
-        <h2>${title}</h2>
-        <p>${message.replace(/\n/g, '<br>')}</p>
-        <input class="modal-input" id="modal-input" placeholder="${placeholder}" autofocus>
+        <h2>DNG conversion needs a helper tool</h2>
+        <p>Shelf uses <b>dnglab</b> to convert RAW (CR3/ARW/NEF/etc.) into Adobe DNG. It's a one-time install — once it's on your machine, Convert to DNG just works.</p>
+        ${cmdHtml}
+        <p class="install-note install-note-dim">${hint || 'After installing, click Convert to DNG again.'}</p>
         <div class="modal-buttons">
-          <button class="btn btn-muted" id="modal-cancel">Cancel</button>
-          <button class="btn btn-primary" id="modal-confirm">Continue</button>
+          <button class="btn btn-primary" id="dnglab-close">Got it</button>
         </div>
       </div>
     `;
     overlay.classList.add('active');
 
-    const input = document.getElementById('modal-input');
-    input.focus();
-
-    const close = (value) => {
-      overlay.classList.remove('active');
-      resolve(value);
+    const keyHandler = (e) => {
+      if (e.key === 'Escape' || e.key === 'Enter') {
+        e.preventDefault();
+        close();
+      }
     };
+    const close = () => {
+      document.removeEventListener('keydown', keyHandler);
+      overlay.classList.remove('active');
+      resolve();
+    };
+    document.addEventListener('keydown', keyHandler);
 
-    document
-      .getElementById('modal-confirm')
-      .addEventListener('click', () => close(input.value.trim() || null));
-    document.getElementById('modal-cancel').addEventListener('click', () => close(null));
-    input.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') close(input.value.trim() || null);
-      if (e.key === 'Escape') close(null);
-    });
+    document.getElementById('dnglab-close').addEventListener('click', close);
+
+    // External link: window.open is intercepted by electron/main.js's
+    // setWindowOpenHandler and routed to shell.openExternal — no extra API needed.
+    const linkEl = document.getElementById('dnglab-link');
+    if (linkEl) {
+      linkEl.addEventListener('click', (e) => {
+        e.preventDefault();
+        window.open(linkEl.href, '_blank');
+      });
+    }
+
+    // Copy command to clipboard with visual confirmation
+    const copyBtn = document.getElementById('copy-cmd');
+    if (copyBtn && cmd) {
+      copyBtn.addEventListener('click', async () => {
+        try {
+          await navigator.clipboard.writeText(cmd);
+          const original = copyBtn.textContent;
+          copyBtn.textContent = 'Copied ✓';
+          setTimeout(() => {
+            copyBtn.textContent = original;
+          }, 1500);
+        } catch {
+          // clipboard API can fail under file:// — silent fallback
+        }
+      });
+    }
+
     overlay.addEventListener('click', (e) => {
-      if (e.target === overlay) close(null);
+      if (e.target === overlay) close();
     });
   });
 }

@@ -53,13 +53,20 @@ async function extractJpeg(sourcePath) {
 
   for (const method of methods) {
     try {
-      const tmpOut = path.join(THUMB_DIR, `extract_${Date.now()}_${Math.random().toString(36).slice(2)}.jpg`);
+      const tmpOut = path.join(
+        THUMB_DIR,
+        `extract_${Date.now()}_${Math.random().toString(36).slice(2)}.jpg`,
+      );
       await exiftool.extractJpgFromRaw(sourcePath, tmpOut);
       if (fs.existsSync(tmpOut) && fs.statSync(tmpOut).size > 0) {
         return tmpOut;
       }
       // Clean up empty file
-      try { fs.unlinkSync(tmpOut); } catch { /* ignore */ }
+      try {
+        fs.unlinkSync(tmpOut);
+      } catch {
+        /* ignore */
+      }
     } catch {
       // Try next method
     }
@@ -71,7 +78,11 @@ async function extractJpeg(sourcePath) {
         if (fs.existsSync(tmpOut) && fs.statSync(tmpOut).size > 0) {
           return tmpOut;
         }
-        try { fs.unlinkSync(tmpOut); } catch { /* ignore */ }
+        try {
+          fs.unlinkSync(tmpOut);
+        } catch {
+          /* ignore */
+        }
       } catch {
         // Try next
       }
@@ -84,7 +95,11 @@ async function extractJpeg(sourcePath) {
         if (fs.existsSync(tmpOut) && fs.statSync(tmpOut).size > 0) {
           return tmpOut;
         }
-        try { fs.unlinkSync(tmpOut); } catch { /* ignore */ }
+        try {
+          fs.unlinkSync(tmpOut);
+        } catch {
+          /* ignore */
+        }
       } catch {
         // All methods failed
       }
@@ -137,7 +152,11 @@ async function generateThumbnail(sourcePath, outputPath, maxDim) {
 
     // Clean up extracted temp file
     if (extracted && extracted !== sourcePath) {
-      try { fs.unlinkSync(extracted); } catch { /* ignore */ }
+      try {
+        fs.unlinkSync(extracted);
+      } catch {
+        /* ignore */
+      }
     }
   } finally {
     release();

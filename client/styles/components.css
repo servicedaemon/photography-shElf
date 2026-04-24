@@ -215,6 +215,51 @@
   box-shadow: 0 0 0 3px rgba(224, 168, 46, 0.08);
 }
 
+/* dnglab-missing modal: install command code block + copy button row */
+.install-cmd-row {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+  margin: 12px 0;
+}
+.install-cmd {
+  flex: 1;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  background: var(--bg-card);
+  border: 1px solid var(--hairline-stronger);
+  border-radius: var(--radius);
+  padding: 8px 12px;
+  color: var(--amber);
+  letter-spacing: 0.02em;
+  display: flex;
+  align-items: center;
+  white-space: nowrap;
+  overflow-x: auto;
+  user-select: text;
+}
+.install-note {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: var(--tan);
+  margin: 8px 0;
+  line-height: 1.5;
+}
+.install-note-dim {
+  color: var(--ink-dim);
+  font-size: 10.5px;
+  letter-spacing: 0.02em;
+}
+.install-note a {
+  color: var(--amber);
+  text-decoration: underline;
+  text-decoration-color: rgba(224, 168, 46, 0.4);
+  text-underline-offset: 2px;
+}
+.install-note a:hover {
+  text-decoration-color: var(--amber);
+}
+
 /* Scope helper — "Tag applies to this stack (5)" under the tag input.
    Only shown when tagging target expands beyond the single focused photo. */
 .tag-scope {

@@ -70,7 +70,9 @@ async function checkFavoritesFolder() {
 }
 
 function countMarks(images) {
-  let keeps = 0, favs = 0, rejects = 0;
+  let keeps = 0,
+    favs = 0,
+    rejects = 0;
   for (const i of images) {
     const s = i.status || 'unmarked';
     if (s === 'keep') keeps++;
@@ -87,30 +89,38 @@ function updateActions() {
   const stage = getStage();
 
   const selRange = getSelectionRange();
-  const selCount = selRange ? (selRange.end - selRange.start + 1) : 0;
+  const selCount = selRange ? selRange.end - selRange.start + 1 : 0;
 
   const buttons = [];
   let countHtml = '';
 
   if (selCount > 0) {
     countHtml = `<span class="action-count">${selCount} selected</span>`;
-    buttons.push(`<button class="btn btn-primary" id="action-move-to-shoot">Move to Shoot\u2026</button>`);
+    buttons.push(
+      `<button class="btn btn-primary" id="action-move-to-shoot">Move to Shoot\u2026</button>`,
+    );
     buttons.push(`<button class="btn btn-muted" id="action-clear-selection">Clear</button>`);
   } else {
     if (stage === 'CULL' && total > 0) {
       buttons.push(`<button class="btn btn-primary" id="action-sort">Sort to Folders</button>`);
     }
     if (stage === 'HEROES' && favs > 0) {
-      buttons.push(`<button class="btn btn-primary" id="action-promote">Promote ${favs} to Favorites</button>`);
+      buttons.push(
+        `<button class="btn btn-primary" id="action-promote">Promote ${favs} to Favorites</button>`,
+      );
     }
     if (stage === 'FINAL' && hasConvertible) {
       buttons.push(`<button class="btn btn-gold" id="action-convert">Convert to DNG</button>`);
     }
     if (stage === 'FINAL' && hasFavoritesFolder) {
-      buttons.push(`<button class="btn btn-muted" id="action-open-editor">Edit in Lightroom</button>`);
+      buttons.push(
+        `<button class="btn btn-muted" id="action-open-editor">Edit in Lightroom</button>`,
+      );
     }
     if (stage === 'HEROES' && hasFavoritesFolder) {
-      buttons.push(`<button class="btn btn-muted" id="action-open-editor">Edit Favorites in Lightroom</button>`);
+      buttons.push(
+        `<button class="btn btn-muted" id="action-open-editor">Edit Favorites in Lightroom</button>`,
+      );
     }
     if (total > 0) {
       const parts = [];
@@ -130,10 +140,20 @@ function updateActions() {
   actionsEl.classList.add('visible');
   actionsEl.innerHTML = countHtml + buttons.join('');
 
-  document.getElementById('action-move-to-shoot')?.addEventListener('click', () => bus.emit('action:move-to-shoot'));
-  document.getElementById('action-clear-selection')?.addEventListener('click', () => clearSelection());
+  document
+    .getElementById('action-move-to-shoot')
+    ?.addEventListener('click', () => bus.emit('action:move-to-shoot'));
+  document
+    .getElementById('action-clear-selection')
+    ?.addEventListener('click', () => clearSelection());
   document.getElementById('action-sort')?.addEventListener('click', () => bus.emit('action:sort'));
-  document.getElementById('action-promote')?.addEventListener('click', () => bus.emit('action:promote-favorites'));
-  document.getElementById('action-convert')?.addEventListener('click', () => bus.emit('action:convert'));
-  document.getElementById('action-open-editor')?.addEventListener('click', () => bus.emit('action:open-editor'));
+  document
+    .getElementById('action-promote')
+    ?.addEventListener('click', () => bus.emit('action:promote-favorites'));
+  document
+    .getElementById('action-convert')
+    ?.addEventListener('click', () => bus.emit('action:convert'));
+  document
+    .getElementById('action-open-editor')
+    ?.addEventListener('click', () => bus.emit('action:open-editor'));
 }

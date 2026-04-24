@@ -16,7 +16,10 @@ async function handleUndo() {
     const data = await res.json();
 
     if (data.ok) {
-      showToast(`Undid ${data.action} (${data.restored} image${data.restored !== 1 ? 's' : ''})`, 'undo');
+      showToast(
+        `Undid ${data.action} (${data.restored} image${data.restored !== 1 ? 's' : ''})`,
+        'undo',
+      );
       bus.emit(EVENTS.REFRESH);
     } else {
       showToast('Nothing to undo', 'error');

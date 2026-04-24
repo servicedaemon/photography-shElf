@@ -8,7 +8,7 @@
 
 1. **`.shelf/embeddings.bin` at the shoot folder root** — matches the "filesystem is the database" philosophy. Travels with the shoot, survives reinstalls. No central DB.
 2. **Bundle the 28MB MobileCLIP-S0 model into the app** — no first-run download dance. DMG / EXE / AppImage / deb each grow by ~28MB, which is fine.
-3. **Tooltip popup when groups detected, user opts in — not auto-on.** When embedding completes and ≥2 clusters of ≥2 photos exist, show an ambient tooltip: *"Found N groups of similar photos — switch to Group Mode?"* User clicks to enter Group Mode or dismisses. No forced layout change.
+3. **Tooltip popup when groups detected, user opts in — not auto-on.** When embedding completes and ≥2 clusters of ≥2 photos exist, show an ambient tooltip: _"Found N groups of similar photos — switch to Group Mode?"_ User clicks to enter Group Mode or dismisses. No forced layout change.
 4. **Fixed 0.95 threshold for MVP.** Same-pose bursts only. Revisit after real use.
 5. **Progress pill in header; elf unchanged.** A small fading-in pill like `Grouping: 145/400` appears when embedding starts and fades out when done. One sparkle animation on completion. The pixel elf stays reactive to marking actions, not background tasks.
 
@@ -34,6 +34,7 @@ Hash the 800px thumbnails `sharp` already produces; cluster by Hamming distance.
 ## MVP scope (v1.1.0)
 
 Ships:
+
 - Bundled MobileCLIP-S0 INT8, loaded by `onnxruntime-node` in server
 - Background embedding on shoot load, 8 concurrent, resumes on reopen
 - `.shelf/embeddings.bin` sidecar + progress endpoint
@@ -43,6 +44,7 @@ Ships:
 - Keyboard nav wraps within strip, advances to next group
 
 Does NOT ship:
+
 - User-tunable threshold slider
 - "Pick best automatically"
 - Group-level batch marks ("mark all as reject")
@@ -52,6 +54,7 @@ Does NOT ship:
 ## Performance budget
 
 Hard targets for a 400-photo shoot on M-series Mac:
+
 - Embedding all 400 photos (8 concurrent workers): **under 90s**
 - Clustering (160K cosine comparisons): **under 200ms**
 - Toggle-to-grouped-grid render: **under 100ms** (embeddings already cached)

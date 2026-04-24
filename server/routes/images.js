@@ -6,15 +6,11 @@ import { getConfig, getState } from '../lib/state.js';
 import { detectStage } from '../lib/stages.js';
 import { readTimestamps } from '../lib/exif-cache.js';
 import { groupImages } from '../lib/grouping.js';
+import { VALID_FILENAME, validateFilename } from '../lib/validate.js';
 
 export const imageRoutes = Router();
 
-const VALID_FILENAME = /^[\w][\w. -]*\.(cr3|cr2|arw|nef|raf|dng|jpg|jpeg|tif|tiff)$/i;
 const STACK_GAP_MS = 5000; // photos within 5s of each other cluster into a stack
-
-function validateFilename(f) {
-  return VALID_FILENAME.test(f) && !f.includes('..');
-}
 
 function resolveSource(query) {
   const source = query?.source;

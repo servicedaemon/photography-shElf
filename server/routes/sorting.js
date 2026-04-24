@@ -3,14 +3,9 @@ import path from 'path';
 import os from 'os';
 import fs from 'fs';
 import { getState, setState, pushUndo, popUndo, getConfig } from '../lib/state.js';
+import { validateFilename, VALID_FILENAME } from '../lib/validate.js';
 
 export const sortingRoutes = Router();
-
-const VALID_FILENAME = /^[\w][\w. -]*\.(cr3|cr2|arw|nef|raf|dng|jpg|jpeg|tif|tiff)$/i;
-
-function validateFilename(f) {
-  return VALID_FILENAME.test(f) && !f.includes('..');
-}
 
 // Mark a single image
 sortingRoutes.post('/mark', (req, res) => {
@@ -317,7 +312,9 @@ sortingRoutes.post('/move-to-shoot', async (req, res) => {
       return res.status(404).json({ error: 'Destination folder not found' });
     }
   } else if (dest.newShootName) {
-    const safeName = String(dest.newShootName).replace(/[^a-zA-Z0-9 _-]/g, '').trim();
+    const safeName = String(dest.newShootName)
+      .replace(/[^a-zA-Z0-9 _-]/g, '')
+      .trim();
     if (!safeName) return res.status(400).json({ error: 'Invalid new shoot name' });
 
     // Parent for new shoot: if source is inside a sub-folder (keeps/unsorted/etc), use the grandparent
@@ -506,8 +503,9 @@ sortingRoutes.post('/sort-in-place', (req, res) => {
   const state = getState(sourcePath);
   let files;
   try {
-    files = fs.readdirSync(sourcePath)
-      .filter(f => VALID_FILENAME.test(f))
+    files = fs
+      .readdirSync(sourcePath)
+      .filter((f) => VALID_FILENAME.test(f))
       .sort();
   } catch {
     return res.status(500).json({ error: 'Cannot read source' });
@@ -529,10 +527,14 @@ sortingRoutes.post('/sort-in-place', (req, res) => {
     if (status === 'unmarked') continue;
 
     // If target is the same folder we're in, that's a no-op
-    const targetKey = status === 'keep' ? 'keep'
-                    : status === 'favorite' ? 'favorite'
-                    : status === 'reject' ? 'reject'
-                    : 'unsorted';
+    const targetKey =
+      status === 'keep'
+        ? 'keep'
+        : status === 'favorite'
+          ? 'favorite'
+          : status === 'reject'
+            ? 'reject'
+            : 'unsorted';
     const targetDir = targets[targetKey];
     if (path.resolve(targetDir) === sourcePath) continue;
 
@@ -586,15 +588,21 @@ sortingRoutes.get('/list-folder-files', (req, res) => {
     for (const e of fs.readdirSync(parent, { withFileTypes: true })) {
       if (!e.isDirectory()) continue;
       const lc = e.name.toLowerCase();
-      if (lc !== base && ALLOWED_SUBS.includes(lc)) { hasSibling = true; break; }
+      if (lc !== base && ALLOWED_SUBS.includes(lc)) {
+        hasSibling = true;
+        break;
+      }
     }
-  } catch { /* fall through to reject */ }
+  } catch {
+    /* fall through to reject */
+  }
   if (!hasSibling) {
     return res.status(403).json({ error: 'Folder has no shoot siblings' });
   }
 
   try {
-    const files = fs.readdirSync(resolved)
+    const files = fs
+      .readdirSync(resolved)
       .filter((f) => VALID_FILENAME.test(f))
       .map((f) => path.join(resolved, f));
     res.json({ files });

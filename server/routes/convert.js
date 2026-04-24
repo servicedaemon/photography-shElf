@@ -13,9 +13,9 @@ const RAW_EXTENSIONS = /\.(cr3|cr2|arw|nef|raf)$/i;
 
 function dnglabCandidates() {
   const list = [
-    '/opt/homebrew/bin/dnglab',     // macOS Apple Silicon
-    '/usr/local/bin/dnglab',        // macOS Intel
-    '/usr/bin/dnglab',              // Linux-style
+    '/opt/homebrew/bin/dnglab', // macOS Apple Silicon
+    '/usr/local/bin/dnglab', // macOS Intel
+    '/usr/bin/dnglab', // Linux-style
   ];
   if (process.platform === 'win32') {
     const home = process.env.USERPROFILE || '';
@@ -66,19 +66,21 @@ convertRoutes.post('/convert', async (req, res) => {
   if (!dnglabPath) {
     return res.status(501).json({
       error: 'dnglab is not installed',
-      hint: process.platform === 'win32'
-        ? 'Install via Chocolatey: choco install dnglab (or download from https://github.com/dnglab/dnglab/releases)'
-        : process.platform === 'darwin'
-          ? 'Install via Homebrew: brew install dnglab'
-          : 'Install from https://github.com/dnglab/dnglab/releases',
+      hint:
+        process.platform === 'win32'
+          ? 'Install via Chocolatey: choco install dnglab (or download from https://github.com/dnglab/dnglab/releases)'
+          : process.platform === 'darwin'
+            ? 'Install via Homebrew: brew install dnglab'
+            : 'Install from https://github.com/dnglab/dnglab/releases',
     });
   }
 
   // Find convertible raw files
   let rawFiles;
   try {
-    rawFiles = fs.readdirSync(sourcePath)
-      .filter(f => RAW_EXTENSIONS.test(f) && !f.includes('..'))
+    rawFiles = fs
+      .readdirSync(sourcePath)
+      .filter((f) => RAW_EXTENSIONS.test(f) && !f.includes('..'))
       .sort();
   } catch {
     return res.status(400).json({ error: 'Cannot read source directory' });
@@ -151,9 +153,7 @@ convertRoutes.get('/has-convertible', (req, res) => {
   }
 
   try {
-    const count = fs.readdirSync(sourcePath)
-      .filter(f => RAW_EXTENSIONS.test(f))
-      .length;
+    const count = fs.readdirSync(sourcePath).filter((f) => RAW_EXTENSIONS.test(f)).length;
     res.json({ hasConvertible: count > 0, count });
   } catch {
     res.json({ hasConvertible: false, count: 0 });
