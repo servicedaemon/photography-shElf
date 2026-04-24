@@ -4,6 +4,8 @@ import fs from 'fs';
 import { exiftool } from 'exiftool-vendored';
 import { invalidateCache } from '../lib/thumbnails.js';
 import { validateFilename } from '../lib/validate.js';
+import { nextOrientation } from '../lib/orientation.js';
+import { mergeKeywords } from '../lib/keywords.js';
 
 export const metadataRoutes = Router();
 
@@ -87,31 +89,11 @@ function sanitize(v) {
   return v;
 }
 
-// Bulk write tags to files.
-//
-// Accepts legacy API shape: { Keywords: [...] } REPLACE,
-// { 'Keywords+': [...] } ADD, { 'Keywords-': [...] } REMOVE.
-//
-// Under the hood we ALWAYS read current keywords, compute the merged set,
-// and write back with plain `Keywords: [...]`. Why: `Keywords+` append
-// silently no-ops on CR3 files (exiftool quirk — the append path writes to
-// XMP/IPTC which doesn't merge back into the CR3 container). Read-merge-
-// write works across all formats uniformly.
-async function mergeKeywords(filePath, addKeywords, removeKeywords) {
+// Read existing keywords from a file then merge in add/remove sets.
+// Pure-JS merge logic lives in lib/keywords.js for unit testing.
+async function readAndMergeKeywords(filePath, addKeywords, removeKeywords) {
   const tags = await exiftool.read(filePath);
-  // exiftool returns string for single keyword, array for multiple, undefined if none
-  let current = tags.Keywords;
-  if (current == null) current = [];
-  else if (!Array.isArray(current)) current = [current];
-
-  // Remove first (so re-adding a removed tag in the same call works predictably)
-  let next =
-    removeKeywords.length > 0 ? current.filter((k) => !removeKeywords.includes(k)) : [...current];
-  // Add (dedupe)
-  for (const k of addKeywords) {
-    if (!next.includes(k)) next.push(k);
-  }
-  return next;
+  return mergeKeywords(tags.Keywords, addKeywords, removeKeywords);
 }
 
 metadataRoutes.post('/metadata/tag', async (req, res) => {
@@ -158,7 +140,7 @@ metadataRoutes.post('/metadata/tag', async (req, res) => {
         writeTags.Keywords = replaceKeywords;
       } else if (addKeywords.length > 0 || removeKeywords.length > 0) {
         // Read-merge-write, uniform across all formats (CR3 safe).
-        writeTags.Keywords = await mergeKeywords(filePath, addKeywords, removeKeywords);
+        writeTags.Keywords = await readAndMergeKeywords(filePath, addKeywords, removeKeywords);
       }
 
       if (Object.keys(writeTags).length > 0) {
@@ -192,15 +174,7 @@ metadataRoutes.post('/rotate', async (req, res) => {
 
   try {
     const tags = await exiftool.read(filePath);
-    const currentOrientation = tags.Orientation || 1;
-
-    // Orientation rotation map
-    const cwMap = { 1: 6, 6: 3, 3: 8, 8: 1, 2: 7, 7: 4, 4: 5, 5: 2 };
-    const ccwMap = { 1: 8, 8: 3, 3: 6, 6: 1, 2: 5, 5: 4, 4: 7, 7: 2 };
-    const map = direction === 'cw' ? cwMap : ccwMap;
-
-    const orientNum = typeof currentOrientation === 'number' ? currentOrientation : 1;
-    const newOrientation = map[orientNum] || 1;
+    const newOrientation = nextOrientation(tags.Orientation, direction);
 
     // Invalidate cached thumbs BEFORE writing — cache key uses mtime,
     // so we must delete the old cache entry before the file changes
