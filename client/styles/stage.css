@@ -110,6 +110,25 @@ body.drag-over::after {
   box-shadow: 0 6px 24px rgba(224, 168, 46, 0.2);
 }
 
+/* First-session attention pulse on the help button — fades after the user
+   clicks it once (state persisted in localStorage). Subtle, not nagging. */
+.help-button-attention {
+  animation: help-pulse 2.4s var(--ease-in-out) infinite;
+}
+@keyframes help-pulse {
+  0%,
+  100% {
+    box-shadow:
+      0 4px 16px rgba(0, 0, 0, 0.4),
+      0 0 0 0 rgba(224, 168, 46, 0.45);
+  }
+  50% {
+    box-shadow:
+      0 4px 16px rgba(0, 0, 0, 0.4),
+      0 0 0 8px rgba(224, 168, 46, 0);
+  }
+}
+
 /* ─── Coach marks (first-run hint) ──────────────────────────────────── */
 
 .coach-marks {

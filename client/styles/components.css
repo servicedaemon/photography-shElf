@@ -614,6 +614,53 @@
   margin-top: 4px;
 }
 
+/* Workflow orientation: CULL → HEROES → FINAL with one-line descriptions.
+   Lives between the action buttons and the recent-shoots list on the welcome
+   screen so first-time users have a map of "what does this app do" before
+   they touch anything. */
+.welcome-flow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 32px;
+  flex-wrap: wrap;
+  max-width: 720px;
+}
+.welcome-flow-step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 10px 18px;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius);
+  background: var(--bg-card);
+  min-width: 160px;
+}
+.welcome-flow-key {
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--amber);
+}
+.welcome-flow-desc {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.02em;
+  color: var(--tan);
+  text-align: center;
+  line-height: 1.5;
+}
+.welcome-flow-arrow {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  color: var(--ink-faint);
+  user-select: none;
+}
+
 #recent-shoots {
   margin-top: 28px;
   width: 100%;

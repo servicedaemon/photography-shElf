@@ -70,33 +70,40 @@ It is not a RAW developer — Lightroom (or Capture One, or Photoshop) is. It's 
 
 | Platform                  | File                    | Notes                        |
 | ------------------------- | ----------------------- | ---------------------------- |
-| **macOS (Apple Silicon)** | `Shelf-1.2.0-arm64.dmg` | Native for M-series Macs     |
-| **macOS (Intel)**         | `Shelf-1.2.0-x64.dmg`   | For Intel Macs               |
-| **Windows 10/11**         | `Shelf-Setup-1.2.0.exe` | NSIS installer, x64          |
-| **Linux — AppImage**      | `Shelf-1.2.0.AppImage`  | Universal, no install needed |
-| **Linux — Debian/Ubuntu** | `shelf_1.2.0_amd64.deb` | `sudo dpkg -i`               |
+| **macOS (Apple Silicon)** | `Shelf-1.2.1-arm64.dmg` | Native for M-series Macs     |
+| **macOS (Intel)**         | `Shelf-1.2.1-x64.dmg`   | For Intel Macs               |
+| **Windows 10/11**         | `Shelf-Setup-1.2.1.exe` | NSIS installer, x64          |
+| **Linux — AppImage**      | `Shelf-1.2.1.AppImage`  | Universal, no install needed |
+| **Linux — Debian/Ubuntu** | `shelf_1.2.1_amd64.deb` | `sudo dpkg -i`               |
 
 Latest release: **[GitHub Releases →](https://github.com/servicedaemon/photography-shElf/releases/latest)**
 
 ### Installing on macOS
 
+> **Heads up:** Shelf isn't signed with an Apple Developer ID, so on first launch macOS will warn you that "Apple cannot check it for malicious software" or similar. The fix is one extra click — see step 3 below. After that, double-click works forever.
+
 1. Download the DMG from the releases page.
 2. Double-click to mount. Drag **Shelf.app** into `/Applications`.
-3. **First launch**: right-click Shelf.app → **Open** → confirm.
-   _This is needed once because the app isn't signed with an Apple Developer ID. After the first approval, double-click works forever._
-4. Optional for DNG conversion: `brew install dnglab` — only needed if you shoot CR3/CR2/ARW/NEF/RAF and want Lightroom-compatible DNGs.
+3. **First launch**: in Finder, **right-click** (or Control-click) Shelf.app → **Open** → click **Open** in the dialog.
+   _This is the standard "open an unsigned app" dance on macOS. You only do it once._
+4. Optional for DNG conversion: `brew install dnglab` — only needed if you shoot CR3/CR2/ARW/NEF/RAF and want Lightroom-compatible DNGs. If you skip this, the Convert to DNG button will show a friendly modal with the install command when you click it.
 
-> **If macOS says "Shelf is damaged and can't be opened"** instead of the normal unidentified-developer warning, open Terminal and run:
->
-> ```bash
-> xattr -cr /Applications/Shelf.app
-> ```
->
-> Then double-click again. This clears macOS's download-quarantine flag that's blocking launch. (We ad-hoc codesign the app in CI specifically to avoid this, but some macOS versions are more aggressive than others.)
+<details>
+<summary><b>If macOS says "Shelf is damaged and can't be opened"</b> (rare, Sequoia-aggressive case)</summary>
+
+Open Terminal and run:
+
+```bash
+xattr -cr /Applications/Shelf.app
+```
+
+Then double-click again. This clears macOS's download-quarantine flag that's blocking launch. (We ad-hoc codesign the app in CI specifically to avoid this, but some macOS versions are more aggressive than others.)
+
+</details>
 
 ### Installing on Windows
 
-1. Download `Shelf-Setup-1.2.0.exe` from the releases page.
+1. Download `Shelf-Setup-1.2.1.exe` from the releases page.
 2. Double-click to run the installer. Follow the prompts.
 3. **First launch**: Windows SmartScreen will warn _"Windows protected your PC."_
    Click **More info** → **Run anyway**. _This is needed once because the app isn't code-signed. After the first approval, double-click works forever._
@@ -111,16 +118,16 @@ Latest release: **[GitHub Releases →](https://github.com/servicedaemon/photogr
 
 **AppImage (any distro):**
 
-1. Download `Shelf-1.2.0.AppImage` from the releases page.
-2. `chmod +x Shelf-1.2.0.AppImage && ./Shelf-1.2.0.AppImage`
+1. Download `Shelf-1.2.1.AppImage` from the releases page.
+2. `chmod +x Shelf-1.2.1.AppImage && ./Shelf-1.2.1.AppImage`
 3. Most desktop environments let you double-click AppImages directly after marking executable.
 
 > **If the AppImage fails with a FUSE error** on Ubuntu 24.04+, install the FUSE2 compatibility package: `sudo apt-get install libfuse2`. Or run it with `--no-sandbox` as a temporary workaround.
 
 **Debian/Ubuntu (.deb):**
 
-1. Download `shelf_1.2.0_amd64.deb` from the releases page.
-2. `sudo dpkg -i shelf_1.2.0_amd64.deb`
+1. Download `shelf_1.2.1_amd64.deb` from the releases page.
+2. `sudo dpkg -i shelf_1.2.1_amd64.deb`
 3. Launch from your application menu or run `shelf` in a terminal.
 
 Optional for DNG conversion: install `dnglab` from the [dnglab releases](https://github.com/dnglab/dnglab/releases) and put it on your PATH, or `cargo install dnglab` if you have Rust installed.

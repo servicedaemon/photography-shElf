@@ -3,6 +3,33 @@
 All notable changes to Shelf will be documented here.
 Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [1.2.1] — 2026-04-24
+
+Pre-public-launch polish pass. No new features — fewer rough edges, cleaner code, more tests, friendlier first-run.
+
+### Fixed
+
+- **MARK_ROLLBACK was emitted but never handled** — when the mark queue's network flush failed, the UI was already optimistically updated and the failure was silent, leaving the grid out of sync with disk. Now refreshes from server on flush failure with an explicit toast. Also catches non-2xx responses (fetch only throws on network errors).
+- **DNG-not-installed UX** is now an actionable modal with platform-detected install command, copy-to-clipboard button, and a link to dnglab releases — not a buried error toast. The most common first-run wall is now friendly.
+- **Recent-shoots leak** — older versions sometimes pushed sub-folder paths (`shoot/keeps`, `shoot/Favorites`) into the recent list. `getRecentShoots()` now normalizes + dedupes on load so legacy entries are cleaned up automatically.
+- **Latent bug in `sorting.js`** — `VALID_FILENAME` was used in four places but never imported. Code paths hitting those filters would have thrown at runtime. Now imported from the canonical `lib/validate.js`.
+
+### Polished
+
+- **First-run discoverability**:
+  - Welcome screen shows a `CULL → HEROES → FINAL` workflow chip row so new users have orientation before they touch anything.
+  - Coach marks now include `Shift+K stack` — the v1.2.0 headline feature was previously invisible during onboarding.
+  - The `?` help button gets a subtle amber pulse for the first session per machine, fading after first click. Returning users don't see it.
+  - README leads the macOS install section with a clear "you'll see a security dialog" callout. The `xattr` workaround is collapsed into a `<details>` block so it doesn't scare normal users.
+
+### Under the hood
+
+- Lint baseline: **0 errors, 0 warnings** (was 7 warnings + 4 errors).
+- Removed dead code: 6 unused event constants, `getStage` import, `stageTooltip` ghost function, `showInputModal` complete-but-dead modal, vestigial `lastClickIndex` + `source` in selection.js, `getStacks` import in keyboard.js.
+- Extracted to testable libs: `server/lib/orientation.js` (EXIF Orientation transition map) and `server/lib/keywords.js` (read-merge-write logic for the CR3 tag fix). Both come with full unit tests.
+- 57 server tests pass (was 37). 20 new tests cover orientation cycle invariants and keyword merge edge cases.
+- Prettier formatting applied across 22 files — repo opens cleanly for new contributors.
+
 ## [1.2.0] — 2026-04-24
 
 Stacks — full-featured burst grouping. v1.1.0 shipped the detection + badge; v1.2.0 is the full interaction set.
