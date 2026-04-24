@@ -8,7 +8,7 @@ test('empty input returns empty array', () => {
   assert.deepEqual(groupImages(null), []);
 });
 
-test('singletons return empty array (no groups of size 1)', () => {
+test('singletons return empty array (no stacks of size 1)', () => {
   const input = [
     { filename: 'a.jpg', timestamp: 1000 },
     { filename: 'b.jpg', timestamp: 60_000 }, // 59s later, not a burst
@@ -17,7 +17,7 @@ test('singletons return empty array (no groups of size 1)', () => {
   assert.deepEqual(groupImages(input, 5000), []);
 });
 
-test('two photos within gap form one group', () => {
+test('two photos within gap form one stack', () => {
   const input = [
     { filename: 'a.jpg', timestamp: 1000 },
     { filename: 'b.jpg', timestamp: 3000 }, // 2s later
@@ -25,7 +25,7 @@ test('two photos within gap form one group', () => {
   assert.deepEqual(groupImages(input, 5000), [['a.jpg', 'b.jpg']]);
 });
 
-test('chain clustering: A-B within gap, B-C within gap → all three group', () => {
+test('chain clustering: A-B within gap, B-C within gap → all three stack', () => {
   // Total span: 8s. Neither A-C pair within 5s, but chain makes them one group.
   const input = [
     { filename: 'a.jpg', timestamp: 0 },
@@ -48,7 +48,7 @@ test('gap breaks chain', () => {
   ]);
 });
 
-test('mixed bursts and singletons', () => {
+test('mixed stacks and singletons', () => {
   const input = [
     { filename: 'solo1.jpg', timestamp: 0 },
     { filename: 'burst1a.jpg', timestamp: 10_000 },

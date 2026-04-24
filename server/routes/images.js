@@ -10,7 +10,7 @@ import { groupImages } from '../lib/grouping.js';
 export const imageRoutes = Router();
 
 const VALID_FILENAME = /^[\w][\w. -]*\.(cr3|cr2|arw|nef|raf|dng|jpg|jpeg|tif|tiff)$/i;
-const BURST_GAP_MS = 5000; // photos within 5s of each other = burst
+const STACK_GAP_MS = 5000; // photos within 5s of each other cluster into a stack
 
 function validateFilename(f) {
   return VALID_FILENAME.test(f) && !f.includes('..');
@@ -29,7 +29,7 @@ function resolveSource(query) {
 imageRoutes.get('/images', async (req, res) => {
   const source = resolveSource(req.query);
   if (!source || !fs.existsSync(source)) {
-    return res.json({ images: [], stage: 'CULL', bursts: [] });
+    return res.json({ images: [], stage: 'CULL', stacks: [] });
   }
   try {
     const files = fs
@@ -39,22 +39,22 @@ imageRoutes.get('/images', async (req, res) => {
     const state = getState(source);
     const images = files.map((f) => ({ filename: f, status: state[f] || 'unmarked' }));
 
-    // Compute burst groups from EXIF timestamps. Graceful if EXIF read fails —
-    // the grid just shows no burst badges rather than erroring.
-    let bursts = [];
+    // Compute stacks (time-clustered groups) from EXIF timestamps. Graceful
+    // if EXIF read fails — the grid just shows no stack badges rather than erroring.
+    let stacks = [];
     try {
       const timestamps = await readTimestamps(source, files);
       const withTs = files
         .filter((f) => timestamps[f] != null)
         .map((f) => ({ filename: f, timestamp: timestamps[f] }));
-      bursts = groupImages(withTs, BURST_GAP_MS);
+      stacks = groupImages(withTs, STACK_GAP_MS);
     } catch {
-      // EXIF read failed — ship the image list without bursts
+      // EXIF read failed — ship the image list without stacks
     }
 
-    res.json({ images, stage: detectStage(source), bursts });
+    res.json({ images, stage: detectStage(source), stacks });
   } catch {
-    res.json({ images: [], stage: 'CULL', bursts: [] });
+    res.json({ images: [], stage: 'CULL', stacks: [] });
   }
 });
 
@@ -98,7 +98,7 @@ imageRoutes.get('/preview/:filename', async (req, res) => {
 imageRoutes.get('/folder/:folder/images', async (req, res) => {
   const config = getConfig();
   const sortDir = config.sortDir;
-  if (!sortDir) return res.json({ images: [], bursts: [] });
+  if (!sortDir) return res.json({ images: [], stacks: [] });
 
   const folderPath = path.join(sortDir, req.params.folder);
   if (!folderPath.startsWith(sortDir) || !fs.existsSync(folderPath)) {
@@ -124,20 +124,20 @@ imageRoutes.get('/folder/:folder/images', async (req, res) => {
 
     const images = files.map((f) => ({ filename: f, status: favState[f] || 'unmarked' }));
 
-    let bursts = [];
+    let stacks = [];
     try {
       const timestamps = await readTimestamps(folderPath, files);
       const withTs = files
         .filter((f) => timestamps[f] != null)
         .map((f) => ({ filename: f, timestamp: timestamps[f] }));
-      bursts = groupImages(withTs, BURST_GAP_MS);
+      stacks = groupImages(withTs, STACK_GAP_MS);
     } catch {
       // graceful fallback
     }
 
-    res.json({ images, bursts });
+    res.json({ images, stacks });
   } catch {
-    res.json({ images: [], bursts: [] });
+    res.json({ images: [], stacks: [] });
   }
 });
 

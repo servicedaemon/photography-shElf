@@ -12,11 +12,11 @@ let gridEl = null;
 let observer = null;
 let currentSelectionRange = null; // tracked via SELECTION_CHANGED event
 
-// Burst grouping: array of arrays of filenames (each inner array = one burst group of ≥2 frames).
-// Derived lookup: filename → burstId (index into bursts[]) and burstId → size.
-let bursts = [];
-let burstIdByFilename = new Map();
-let burstSizeById = [];
+// Stack grouping: array of arrays of filenames (each inner array = one stack of ≥2 frames).
+// Derived lookup: filename → stackId (index into stacks[]) and stackId → size.
+let stacks = [];
+let stackIdByFilename = new Map();
+let stackSizeById = [];
 
 export function initGrid() {
   gridEl = document.getElementById('grid');
@@ -34,23 +34,41 @@ export function initGrid() {
   });
 }
 
-export function setGridData(newImages, newSource, newFolder, newMode, newBursts = []) {
+export function setGridData(newImages, newSource, newFolder, newMode, newStacks = []) {
   images = newImages;
   source = newSource;
   folder = newFolder;
   mode = newMode;
   selectedIndex = -1;
 
-  // Rebuild burst lookups from the server-supplied groups
-  bursts = Array.isArray(newBursts) ? newBursts : [];
-  burstIdByFilename = new Map();
-  burstSizeById = [];
-  bursts.forEach((group, id) => {
-    burstSizeById[id] = group.length;
-    for (const fn of group) burstIdByFilename.set(fn, id);
+  // Rebuild stack lookups from the server-supplied groups
+  stacks = Array.isArray(newStacks) ? newStacks : [];
+  stackIdByFilename = new Map();
+  stackSizeById = [];
+  stacks.forEach((group, id) => {
+    stackSizeById[id] = group.length;
+    for (const fn of group) stackIdByFilename.set(fn, id);
   });
 
   renderGrid();
+}
+
+// Exposed for consumers that need to know stack membership
+export function getStacks() {
+  return stacks;
+}
+
+export function getStackIdFor(filename) {
+  const id = stackIdByFilename.get(filename);
+  return id !== undefined ? id : null;
+}
+
+export function getStackSize(stackId) {
+  return stackSizeById[stackId] || 0;
+}
+
+export function getStackMembers(stackId) {
+  return stacks[stackId] || [];
 }
 
 export function getImages() {
@@ -241,27 +259,27 @@ function renderGrid() {
       card.appendChild(badge);
     }
 
-    // Burst badge — photos within 5s of each other share a burstId.
-    // Hovering one card highlights all siblings via .burst-sibling class.
-    const burstId = burstIdByFilename.get(img.filename);
-    if (burstId !== undefined) {
-      card.dataset.burstId = String(burstId);
-      const size = burstSizeById[burstId];
-      const burstBadge = document.createElement('div');
-      burstBadge.className = 'burst-badge';
-      burstBadge.textContent = `◈${size}`;
-      burstBadge.title = `${size} photos in this burst (within 5 seconds)`;
-      card.appendChild(burstBadge);
+    // Stack badge — photos within 5s of each other share a stackId.
+    // Hovering one card highlights all siblings via .stack-sibling class.
+    const stackId = stackIdByFilename.get(img.filename);
+    if (stackId !== undefined) {
+      card.dataset.stackId = String(stackId);
+      const size = stackSizeById[stackId];
+      const stackBadge = document.createElement('div');
+      stackBadge.className = 'stack-badge';
+      stackBadge.textContent = `◈${size}`;
+      stackBadge.title = `${size} photos in this stack (within 5 seconds). Shift+mark applies to all.`;
+      card.appendChild(stackBadge);
 
       card.addEventListener('mouseenter', () => {
         gridEl
-          .querySelectorAll(`.card[data-burst-id="${burstId}"]`)
-          .forEach((c) => c.classList.add('burst-sibling'));
+          .querySelectorAll(`.card[data-stack-id="${stackId}"]`)
+          .forEach((c) => c.classList.add('stack-sibling'));
       });
       card.addEventListener('mouseleave', () => {
         gridEl
-          .querySelectorAll('.card.burst-sibling')
-          .forEach((c) => c.classList.remove('burst-sibling'));
+          .querySelectorAll('.card.stack-sibling')
+          .forEach((c) => c.classList.remove('stack-sibling'));
       });
     }
 

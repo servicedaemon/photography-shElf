@@ -1,9 +1,13 @@
-// Burst grouping — cluster photos taken within a short time window.
+// Stack grouping — cluster photos taken within a short time window.
 //
 // Takes an array of { filename, timestamp } and returns the filenames
-// of each burst group (groups with ≥2 members). Uses chain clustering:
-// A and B within gap, B and C within gap → A, B, C all in one group,
+// of each stack (groups with ≥2 members). Uses chain clustering:
+// A and B within gap, B and C within gap → A, B, C all in one stack,
 // even if A and C are individually more than gap apart.
+//
+// The detection strategy (time-based) is an implementation detail — a
+// "stack" is any group of related frames. Future strategies (HDR brackets,
+// focus stacks, manual grouping) can populate the same structure.
 //
 // Pure function. No I/O. See server/lib/exif-cache.js for the EXIF-reading
 // that produces the timestamps this consumes.

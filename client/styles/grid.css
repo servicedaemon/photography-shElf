@@ -232,9 +232,9 @@
   box-shadow: 0 0 12px rgba(224, 168, 46, 0.4);
 }
 
-/* ─── Burst badge (top left) + sibling highlight on hover ───────────── */
+/* ─── Stack badge (top left) + sibling highlight on hover ───────────── */
 
-.card .burst-badge {
+.card .stack-badge {
   position: absolute;
   top: 8px;
   left: 8px;
@@ -254,13 +254,13 @@
   transition: opacity var(--transition-fast);
 }
 
-.card:hover .burst-badge,
-.card.burst-sibling .burst-badge {
+.card:hover .stack-badge,
+.card.stack-sibling .stack-badge {
   opacity: 1;
 }
 
-/* When you hover a burst card, all its siblings get an amber ring. */
-.card.burst-sibling:not(.selected):not(.selection) {
+/* When you hover a stack card, all its siblings get an amber ring. */
+.card.stack-sibling:not(.selected):not(.selection) {
   box-shadow:
     0 0 0 2px rgba(224, 168, 46, 0.55),
     0 4px 16px rgba(224, 168, 46, 0.15);
