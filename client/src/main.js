@@ -1247,16 +1247,23 @@ function showPromoteBridge(count, _folderName) {
   });
 }
 
-// --- Refresh (after undo) ---
+// --- Refresh (after undo, or after a mark-sync rollback) ---
 
 async function refresh() {
-  if (mode === 'card' && source) {
+  if (mode !== 'card' || !source) return;
+  try {
     const res = await fetch(`/api/images?source=${encodeURIComponent(source)}`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
     const images = Array.isArray(data) ? data : data.images;
     const stacks = Array.isArray(data) ? [] : data.stacks || data.bursts || [];
     setGridData(images, source, '', 'card', stacks);
     renderHeader();
+  } catch {
+    // Refresh failed too. Critical to surface this — a silent failure here
+    // leaves the user thinking marks were saved when neither write nor
+    // restore actually worked. The grid stays optimistic; toast warns.
+    showToast('Could not reload from server — grid may be out of sync', 'error');
   }
 }
 
