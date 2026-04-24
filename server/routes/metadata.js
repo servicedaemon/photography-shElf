@@ -110,7 +110,8 @@ async function mergeKeywords(filePath, addKeywords, removeKeywords) {
   else if (!Array.isArray(current)) current = [current];
 
   // Remove first (so re-adding a removed tag in the same call works predictably)
-  let next = removeKeywords.length > 0 ? current.filter((k) => !removeKeywords.includes(k)) : [...current];
+  let next =
+    removeKeywords.length > 0 ? current.filter((k) => !removeKeywords.includes(k)) : [...current];
   // Add (dedupe)
   for (const k of addKeywords) {
     if (!next.includes(k)) next.push(k);

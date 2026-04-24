@@ -17,7 +17,7 @@ import { enqueueMark } from './mark-queue.js';
 let lastClickIndex = -1;
 let source = '';
 
-let selectionAnchor = -1;  // first shift+click
+let selectionAnchor = -1; // first shift+click
 let selectionRange = null; // { start, end } inclusive, or null
 
 export function initSelection() {
@@ -166,38 +166,62 @@ export function markCurrentStack(status) {
 }
 
 export function keepAndAdvance() {
-  if (selectionRange) { markSelection('keep'); return; }
+  if (selectionRange) {
+    markSelection('keep');
+    return;
+  }
   markCurrent('keep');
 }
 export function favoriteAndAdvance() {
-  if (selectionRange) { markSelection('favorite'); return; }
+  if (selectionRange) {
+    markSelection('favorite');
+    return;
+  }
   markCurrent('favorite');
 }
 export function rejectAndAdvance() {
-  if (selectionRange) { markSelection('reject'); return; }
+  if (selectionRange) {
+    markSelection('reject');
+    return;
+  }
   markCurrent('reject');
 }
 export function unmarkAndAdvance() {
-  if (selectionRange) { markSelection('unmarked'); return; }
+  if (selectionRange) {
+    markSelection('unmarked');
+    return;
+  }
   markCurrent('unmarked');
 }
 
 // Shift+mark variants: when focused card is in a stack, mark the whole stack
 // and advance past it. Otherwise same as normal mark.
 export function keepStackAndAdvance() {
-  if (selectionRange) { markSelection('keep'); return; }
+  if (selectionRange) {
+    markSelection('keep');
+    return;
+  }
   markCurrentStack('keep');
 }
 export function favoriteStackAndAdvance() {
-  if (selectionRange) { markSelection('favorite'); return; }
+  if (selectionRange) {
+    markSelection('favorite');
+    return;
+  }
   markCurrentStack('favorite');
 }
 export function rejectStackAndAdvance() {
-  if (selectionRange) { markSelection('reject'); return; }
+  if (selectionRange) {
+    markSelection('reject');
+    return;
+  }
   markCurrentStack('reject');
 }
 export function unmarkStackAndAdvance() {
-  if (selectionRange) { markSelection('unmarked'); return; }
+  if (selectionRange) {
+    markSelection('unmarked');
+    return;
+  }
   markCurrentStack('unmarked');
 }
 

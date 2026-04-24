@@ -12,20 +12,34 @@
   animation: lightbox-in 0.22s var(--ease-out);
 }
 
-#lightbox.active { display: flex; }
+#lightbox.active {
+  display: flex;
+}
 
 #lightbox.closing {
   animation: lightbox-out 0.2s var(--ease-out) forwards;
 }
 
 @keyframes lightbox-in {
-  from { opacity: 0; transform: scale(1.02); }
-  to   { opacity: 1; transform: scale(1); }
+  from {
+    opacity: 0;
+    transform: scale(1.02);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 @keyframes lightbox-out {
-  from { opacity: 1; transform: scale(1); }
-  to   { opacity: 0; transform: scale(0.98); }
+  from {
+    opacity: 1;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.98);
+  }
 }
 
 /* ─── Image stage ────────────────────────────────────────────────────── */
@@ -37,8 +51,7 @@
   justify-content: center;
   overflow: hidden;
   position: relative;
-  background:
-    radial-gradient(ellipse 80% 60% at 50% 50%, rgba(20, 20, 24, 0.8), #000);
+  background: radial-gradient(ellipse 80% 60% at 50% 50%, rgba(20, 20, 24, 0.8), #000);
 }
 
 .lb-image-container img {
@@ -54,8 +67,14 @@
 }
 
 @keyframes lb-img-in {
-  from { opacity: 0; transform: scale(0.98); }
-  to   { opacity: 1; transform: scale(1); }
+  from {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 .lb-image-container img.zoomed {
@@ -197,7 +216,9 @@
   flex-shrink: 0;
 }
 
-.filmstrip::-webkit-scrollbar { height: 4px; }
+.filmstrip::-webkit-scrollbar {
+  height: 4px;
+}
 .filmstrip::-webkit-scrollbar-thumb {
   background: rgba(224, 168, 46, 0.3);
   border-radius: 2px;
@@ -226,10 +247,42 @@
   box-shadow: 0 0 12px rgba(224, 168, 46, 0.4);
 }
 
-.filmstrip-thumb.keep     { border-color: rgba(140, 160, 184, 0.6); opacity: 0.7; }
-.filmstrip-thumb.reject   { border-color: rgba(192, 132, 132, 0.6); opacity: 0.35; }
-.filmstrip-thumb.favorite { border-color: rgba(224, 168, 46, 0.7);  opacity: 0.8; }
+.filmstrip-thumb.keep {
+  border-color: rgba(140, 160, 184, 0.6);
+  opacity: 0.7;
+}
+.filmstrip-thumb.reject {
+  border-color: rgba(192, 132, 132, 0.6);
+  opacity: 0.35;
+}
+.filmstrip-thumb.favorite {
+  border-color: rgba(224, 168, 46, 0.7);
+  opacity: 0.8;
+}
 
-.filmstrip-thumb.active.keep     { opacity: 1; border-color: var(--blue); box-shadow: 0 0 10px rgba(140, 160, 184, 0.4); }
-.filmstrip-thumb.active.reject   { opacity: 1; border-color: var(--rose); box-shadow: 0 0 10px rgba(192, 132, 132, 0.4); }
-.filmstrip-thumb.active.favorite { opacity: 1; border-color: var(--amber); box-shadow: 0 0 14px rgba(224, 168, 46, 0.5); }
+.filmstrip-thumb.active.keep {
+  opacity: 1;
+  border-color: var(--blue);
+  box-shadow: 0 0 10px rgba(140, 160, 184, 0.4);
+}
+.filmstrip-thumb.active.reject {
+  opacity: 1;
+  border-color: var(--rose);
+  box-shadow: 0 0 10px rgba(192, 132, 132, 0.4);
+}
+.filmstrip-thumb.active.favorite {
+  opacity: 1;
+  border-color: var(--amber);
+  box-shadow: 0 0 14px rgba(224, 168, 46, 0.5);
+}
+
+/* Siblings of the current photo's stack get an amber underline so the user
+   can see at a glance which nearby frames are part of the same burst. */
+.filmstrip-thumb.filmstrip-stack-sibling {
+  box-shadow: inset 0 -2px 0 rgba(224, 168, 46, 0.7);
+}
+.filmstrip-thumb.filmstrip-stack-sibling.active {
+  box-shadow:
+    0 0 12px rgba(224, 168, 46, 0.4),
+    inset 0 -2px 0 rgba(224, 168, 46, 0.9);
+}

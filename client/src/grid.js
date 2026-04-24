@@ -93,10 +93,7 @@ export function getStackSpanForIndex(index) {
   let start = index;
   while (start > 0 && stackIdByFilename.get(images[start - 1].filename) === stackId) start--;
   let end = index;
-  while (
-    end < images.length - 1 &&
-    stackIdByFilename.get(images[end + 1].filename) === stackId
-  )
+  while (end < images.length - 1 && stackIdByFilename.get(images[end + 1].filename) === stackId)
     end++;
   return { start, end, stackId };
 }

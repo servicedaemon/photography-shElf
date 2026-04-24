@@ -1,7 +1,7 @@
 // Lightbox — spacebar toggle, full-window preview with marking
 
 import { bus, EVENTS } from './events.js';
-import { getImages, setSelectedIndex, previewUrl } from './grid.js';
+import { getImages, setSelectedIndex, previewUrl, getStackIdFor } from './grid.js';
 import { markSingle } from './selection.js';
 
 let lightboxEl = null;
@@ -134,14 +134,19 @@ function renderLightbox() {
     })
     .join('');
 
-  // Build filmstrip
+  // Build filmstrip. Highlight siblings in the current stack so the user can
+  // spot which nearby frames are part of the same burst while scrolling.
+  const currentStackId = getStackIdFor(img.filename);
   let filmstripHtml = '<div class="filmstrip">';
   images.forEach((fi, i) => {
     const fStatus = fi.status || 'unmarked';
     const active = i === currentIndex ? ' active' : '';
     const statusClass = fStatus !== 'unmarked' ? ` ${fStatus}` : '';
+    const fStackId = getStackIdFor(fi.filename);
+    const siblingClass =
+      currentStackId !== null && fStackId === currentStackId ? ' filmstrip-stack-sibling' : '';
     const fThumb = thumbUrl(fi.filename);
-    filmstripHtml += `<img class="filmstrip-thumb${active}${statusClass}" data-index="${i}" src="${fThumb}" alt="">`;
+    filmstripHtml += `<img class="filmstrip-thumb${active}${statusClass}${siblingClass}" data-index="${i}" src="${fThumb}" alt="">`;
   });
   filmstripHtml += '</div>';
 

@@ -202,6 +202,22 @@ h3 {
   flex: 1;
 }
 
+/* Stack stats in header — small at-a-glance context, quiet. */
+.stack-stats {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  padding-left: 14px;
+  margin-left: 10px;
+  border-left: 1px solid var(--hairline);
+  cursor: help;
+  user-select: none;
+  white-space: nowrap;
+}
+
 /* ─── Buttons ────────────────────────────────────────────────────────── */
 
 .btn {

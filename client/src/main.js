@@ -1,7 +1,7 @@
 // Shelf — main entry point
 
 import { bus, EVENTS } from './events.js';
-import { initGrid, setGridData, getImages } from './grid.js';
+import { initGrid, setGridData, getImages, getStacks } from './grid.js';
 import { initLightbox } from './lightbox.js';
 import { initSelection, deselectAll, getSelectedFilenames, clearSelection } from './selection.js';
 import { initKeyboard } from './keyboard.js';
@@ -139,9 +139,19 @@ function renderHeader() {
     }
     const hasMarks = total > 0;
 
+    // Stack stats: e.g. "8 stacks · 25 frames". Only shown when there's at
+    // least one stack in the shoot — silent at-a-glance scale indicator.
+    const stacks = getStacks();
+    let stackStatsHtml = '';
+    if (stacks.length > 0) {
+      const frames = stacks.reduce((s, g) => s + g.length, 0);
+      stackStatsHtml = `<div class="stack-stats" title="Photos taken within 5 seconds of each other, clustered into stacks.\nS: toggle current · Shift+S: all\nShift+mark: apply to whole stack">${stacks.length} ${stacks.length === 1 ? 'stack' : 'stacks'} · ${frames} frames</div>`;
+    }
+
     header.innerHTML = `
       <div class="elf-corner" id="header-elf"></div>
       <h1>Shelf</h1>
+      ${stackStatsHtml}
       <div class="header-spacer"></div>
       <div class="thumb-slider">
         <label>Size</label>
