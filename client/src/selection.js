@@ -9,6 +9,8 @@ import {
   getSelectedIndex,
   setSelectedIndex,
   updateCardStatus,
+  getStackIndices,
+  getStackSpanForIndex,
 } from './grid.js';
 import { enqueueMark } from './mark-queue.js';
 
@@ -109,6 +111,22 @@ function advanceToNextUnmarked() {
   }
 }
 
+// Same as advanceToNextUnmarked but starts from the END of the current stack.
+// Used after Shift+mark on a stack member — jump past the whole group.
+function advancePastStack(stackEndIndex) {
+  const images = getImages();
+  for (let i = stackEndIndex + 1; i < images.length; i++) {
+    const s = images[i].status || 'unmarked';
+    if (s === 'unmarked') {
+      setSelectedIndex(i);
+      return;
+    }
+  }
+  if (stackEndIndex + 1 < images.length) {
+    setSelectedIndex(stackEndIndex + 1);
+  }
+}
+
 function markCurrent(status) {
   const images = getImages();
   let index = getSelectedIndex();
@@ -116,6 +134,35 @@ function markCurrent(status) {
   if (index >= images.length) return;
   markSingle(index, status);
   advanceToNextUnmarked();
+}
+
+// Mark the whole stack containing the currently-focused card, then advance
+// past the stack to the next unmarked photo. Called for Shift+K/F/X/U.
+// Falls back to markCurrent if focused card isn't in a stack.
+export function markCurrentStack(status) {
+  const images = getImages();
+  let index = getSelectedIndex();
+  if (index < 0) index = 0;
+  if (index >= images.length) return;
+
+  const span = getStackSpanForIndex(index);
+  if (!span) {
+    // Not in a stack — behave as a normal mark
+    markCurrent(status);
+    return;
+  }
+
+  // Apply to every member of the stack (indices may not all be contiguous,
+  // so use getStackIndices in addition to the span for the advance target).
+  const indices = getStackIndices(span.stackId);
+  for (const i of indices) {
+    updateCardStatus(i, status);
+    enqueueMark(images[i].filename, status);
+  }
+  bus.emit(EVENTS.BATCH_MARKED, { start: span.start, end: span.end, status });
+
+  // Auto-advance past the last member of the span to the next unmarked photo
+  advancePastStack(span.end);
 }
 
 export function keepAndAdvance() {
@@ -133,6 +180,25 @@ export function rejectAndAdvance() {
 export function unmarkAndAdvance() {
   if (selectionRange) { markSelection('unmarked'); return; }
   markCurrent('unmarked');
+}
+
+// Shift+mark variants: when focused card is in a stack, mark the whole stack
+// and advance past it. Otherwise same as normal mark.
+export function keepStackAndAdvance() {
+  if (selectionRange) { markSelection('keep'); return; }
+  markCurrentStack('keep');
+}
+export function favoriteStackAndAdvance() {
+  if (selectionRange) { markSelection('favorite'); return; }
+  markCurrentStack('favorite');
+}
+export function rejectStackAndAdvance() {
+  if (selectionRange) { markSelection('reject'); return; }
+  markCurrentStack('reject');
+}
+export function unmarkStackAndAdvance() {
+  if (selectionRange) { markSelection('unmarked'); return; }
+  markCurrentStack('unmarked');
 }
 
 export function toggleFavorite(index) {

@@ -7,9 +7,24 @@ import {
   setSelectedIndex,
   getGridColumns,
   getSource,
+  nextVisibleIndex,
+  toggleStackAtCurrent,
+  toggleAllStacks,
+  promoteCoverAtCurrent,
+  jumpToNextStack,
 } from './grid.js';
 import { isLightboxOpen, navigateLightbox, toggleLightbox } from './lightbox.js';
-import { keepAndAdvance, favoriteAndAdvance, rejectAndAdvance, unmarkAndAdvance, clearSelection } from './selection.js';
+import {
+  keepAndAdvance,
+  favoriteAndAdvance,
+  rejectAndAdvance,
+  unmarkAndAdvance,
+  keepStackAndAdvance,
+  favoriteStackAndAdvance,
+  rejectStackAndAdvance,
+  unmarkStackAndAdvance,
+  clearSelection,
+} from './selection.js';
 
 let shortcutsVisible = false;
 
@@ -51,10 +66,11 @@ function handleKeydown(e) {
         rotateImage('cw');
       } else if (isLightboxOpen()) {
         navigateLightbox(1);
-      } else if (index < images.length - 1) {
-        setSelectedIndex(index + 1);
-      } else if (index === -1 && images.length > 0) {
+      } else if (index < 0 && images.length > 0) {
         setSelectedIndex(0);
+      } else {
+        const next = nextVisibleIndex(index, 1);
+        if (next !== index) setSelectedIndex(next);
       }
       break;
 
@@ -64,8 +80,9 @@ function handleKeydown(e) {
         rotateImage('ccw');
       } else if (isLightboxOpen()) {
         navigateLightbox(-1);
-      } else if (index > 0) {
-        setSelectedIndex(index - 1);
+      } else {
+        const prev = nextVisibleIndex(index, -1);
+        if (prev !== index) setSelectedIndex(prev);
       }
       break;
 
@@ -73,10 +90,8 @@ function handleKeydown(e) {
       e.preventDefault();
       if (!isLightboxOpen()) {
         const cols = getGridColumns();
-        const next = index + cols;
-        if (next < images.length) {
-          setSelectedIndex(next);
-        }
+        const next = nextVisibleIndex(index, cols);
+        if (next !== index) setSelectedIndex(next);
       }
       break;
 
@@ -84,41 +99,63 @@ function handleKeydown(e) {
       e.preventDefault();
       if (!isLightboxOpen()) {
         const cols = getGridColumns();
-        const prev = index - cols;
-        if (prev >= 0) {
-          setSelectedIndex(prev);
-        }
+        const prev = nextVisibleIndex(index, -cols);
+        if (prev !== index) setSelectedIndex(prev);
       }
       break;
 
     case 'k':
     case 'K':
       e.preventDefault();
-      keepAndAdvance();
+      if (e.shiftKey) keepStackAndAdvance();
+      else keepAndAdvance();
       break;
 
     case 'f':
     case 'F':
       e.preventDefault();
-      favoriteAndAdvance();
+      if (e.shiftKey) favoriteStackAndAdvance();
+      else favoriteAndAdvance();
       break;
 
     case 'x':
     case 'X':
       e.preventDefault();
-      rejectAndAdvance();
+      if (e.shiftKey) rejectStackAndAdvance();
+      else rejectAndAdvance();
       break;
 
     case 'u':
     case 'U':
       e.preventDefault();
-      unmarkAndAdvance();
+      if (e.shiftKey) unmarkStackAndAdvance();
+      else unmarkAndAdvance();
       break;
 
     case 'i':
     case 'I':
       e.preventDefault();
       bus.emit(EVENTS.SIDEBAR_TOGGLE);
+      break;
+
+    // Stack operations
+    case 's':
+    case 'S':
+      e.preventDefault();
+      if (e.shiftKey) toggleAllStacks();
+      else toggleStackAtCurrent();
+      break;
+
+    case 'p':
+    case 'P':
+      e.preventDefault();
+      promoteCoverAtCurrent();
+      break;
+
+    case 'g':
+    case 'G':
+      e.preventDefault();
+      jumpToNextStack(e.shiftKey ? -1 : 1);
       break;
 
     case '?':
