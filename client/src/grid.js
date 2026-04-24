@@ -192,7 +192,9 @@ export function nextVisibleIndex(fromIndex, step) {
 
 // Jump to the next/previous stack's representative (cover) card.
 export function jumpToNextStack(direction = 1) {
-  if (stacks.length === 0) return;
+  // Returns false when there are no stacks — caller decides how to surface it
+  // (e.g. toast). Silent no-op would look broken in help-less keyboard mode.
+  if (stacks.length === 0) return false;
   const current = images[selectedIndex]?.filename;
   const currentStackId = current !== undefined ? stackIdByFilename.get(current) : undefined;
 
@@ -225,6 +227,7 @@ export function jumpToNextStack(direction = 1) {
   }
 
   if (targetIdx >= 0) setSelectedIndex(targetIdx);
+  return true;
 }
 
 export function getImages() {

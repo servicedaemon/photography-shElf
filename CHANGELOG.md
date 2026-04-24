@@ -3,6 +3,41 @@
 All notable changes to Shelf will be documented here.
 Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [1.2.0] — 2026-04-24
+
+Stacks — full-featured burst grouping. v1.1.0 shipped the detection + badge; v1.2.0 is the full interaction set.
+
+### New
+
+- **Rename burst → stack.** "Stack" is the generalizable concept — time-clustered bursts are one detection strategy, HDR brackets and manual groupings can populate the same structure in v1.3+.
+- **Collapse / expand** — `S` toggles the current stack, `Shift+S` toggles all. Stacks default to collapsed on load (scannability win — 2000-photo wedding becomes 400 stacks + singletons).
+- **Promote cover frame** — `P` on any frame promotes it to be the stack's cover when collapsed. Session-only; resets per-launch.
+- **Jump between stacks** — `G` / `Shift+G` navigates next/previous stack's cover. Toasts "No stacks in this shoot" when there aren't any.
+- **Group mark + auto-advance past stack** — `Shift+K/F/X/U` marks every frame in the focused stack and advances to the first unmarked photo AFTER the stack. An N-frame burst cull = 1 keypress.
+- **Batch rotate + batch tag** — Option+Arrow rotation and sidebar tagging both compose with the current selection. Range active → applies to range. Collapsed stack cover focused → applies to whole stack. Else → single focused photo. Tag sidebar shows amber "TAG APPLIES TO THIS STACK (5)" helper.
+- **Lightbox stack siblings** — when viewing any stack member in the lightbox, filmstrip thumbnails belonging to the same stack get an amber underline. See adjacent burst frames at a glance.
+- **Header stats** — "N stacks · M frames" shows next to SHELF when at least one stack exists. Hover for shortcut summary.
+- **First-run hint** — one-time toast on first shoot load with stacks: "N stacks detected — press S to expand."
+
+### Fixed (pre-existing CR3 tag bug, surfaced by batch)
+
+- The `/api/metadata/tag` endpoint previously used exiftool's `Keywords+` append syntax, which silently no-ops on CR3 files (exiftool writes the append to XMP/IPTC which doesn't merge back into the CR3 container). Server now does read-merge-write internally — reads current keywords, computes the merged set, writes with plain `Keywords: [...]`. Works uniformly across DNG/JPEG/TIFF/CR3. Legacy API shape (`Keywords`, `Keywords+`, `Keywords-`) still accepted.
+
+### Under the hood
+
+- Unified selection model: single / range / stack as three shapes of "the current selection." Batch operations (mark, rotate, tag) each read the context and act accordingly. Range selection wins over stack when both apply (explicit user intent beats implicit stack membership).
+- Arrow keys skip hidden (collapsed-stack non-cover) cards via `nextVisibleIndex` — navigation feels natural with collapsed stacks.
+- New `grid.js` exports: `getStacks`, `getStackIdFor`, `getStackSize`, `getStackMembers`, `getStackIndices`, `getStackSpanForIndex`, `isStackCollapsed`, `coverFilenameFor`, `isImageVisible`, `nextVisibleIndex`, `jumpToNextStack`, `toggleStackAtCurrent`, `toggleAllStacks`, `promoteCoverAtCurrent`.
+- Shortcuts overlay (`?` key) now includes a dedicated "Stacks" section documenting every new keybinding.
+- 37/37 server tests pass (no regressions).
+
+### Deferred to v1.3+
+
+- Manual stacks (user groups arbitrary photos) — needs `.shelf/stacks.json` disk persistence + new UX
+- HDR bracket / focus-stack auto-detection via exposure/focus EXIF clustering
+- Persistent cover frame across sessions
+- Sharpness-based "best pick" indicator (wrong too often on portraits to ship)
+
 ## [1.1.0] — 2026-04-23
 
 Burst grouping. One decision per group instead of N.

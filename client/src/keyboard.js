@@ -15,8 +15,10 @@ import {
   getStackIndices,
   getStackIdFor,
   isStackCollapsed,
+  getStacks,
 } from './grid.js';
 import { getSelectionRange } from './selection.js';
+import { showToast } from './undo.js';
 import { isLightboxOpen, navigateLightbox, toggleLightbox } from './lightbox.js';
 import {
   keepAndAdvance,
@@ -159,7 +161,9 @@ function handleKeydown(e) {
     case 'g':
     case 'G':
       e.preventDefault();
-      jumpToNextStack(e.shiftKey ? -1 : 1);
+      if (!jumpToNextStack(e.shiftKey ? -1 : 1)) {
+        showToast('No stacks in this shoot');
+      }
       break;
 
     case '?':
@@ -274,6 +278,14 @@ function showShortcutsOverlay() {
         <div class="shortcut-row"><span class="desc">Range keep</span><span class="keys">Shift+Click</span></div>
         <div class="shortcut-row"><span class="desc">Range reject</span><span class="keys">Shift+\u2318+Click</span></div>
         <div class="shortcut-row"><span class="desc">Undo</span><span class="keys">\u2318+Z</span></div>
+      </div>
+      <div class="shortcut-group">
+        <h3>Stacks <span style="font-size:10px;color:var(--ink-dim);letter-spacing:0.04em;font-weight:400;text-transform:none">(photos shot within 5s of each other)</span></h3>
+        <div class="shortcut-row"><span class="desc">Expand / collapse current stack</span><span class="keys">S</span></div>
+        <div class="shortcut-row"><span class="desc">Expand / collapse all stacks</span><span class="keys">Shift+S</span></div>
+        <div class="shortcut-row"><span class="desc">Promote focused frame to cover</span><span class="keys">P</span></div>
+        <div class="shortcut-row"><span class="desc">Jump to next / previous stack</span><span class="keys">G / Shift+G</span></div>
+        <div class="shortcut-row"><span class="desc">Mark whole stack (keep/fav/reject/unmark)</span><span class="keys">Shift+K/F/X/U</span></div>
       </div>
       <div class="shortcut-group">
         <h3>Navigation</h3>

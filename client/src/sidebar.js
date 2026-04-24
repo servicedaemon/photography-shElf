@@ -230,8 +230,9 @@ function renderMetadata(filename, data) {
 async function addTagToMany(filenames, tag) {
   if (!filenames || filenames.length === 0) return;
   const sourceParam = folder || source;
-  // `Keywords+` appends to the existing list on each file (exiftool plus-suffix
-  // convention). Plain `Keywords` would REPLACE, silently wiping other tags.
+  // Send `Keywords+` — the server interprets this as an ADD operation and
+  // does read-merge-write internally (works uniformly across all formats
+  // including CR3, where exiftool's native Keywords+ append silently no-ops).
   await fetch('/api/metadata/tag', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

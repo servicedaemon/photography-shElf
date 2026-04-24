@@ -602,6 +602,17 @@ async function loadSource(dir) {
     // populated sub-folder automatically.
     pushRecentShoot(shootRootOf(source)).catch(() => {});
 
+    // First time a user loads a shoot with stacks, nudge them about the S key.
+    // Persisted in localStorage so the hint appears once ever, not per-shoot.
+    if (stacks.length > 0 && !localStorage.getItem('shelf-stacks-hint-seen')) {
+      setTimeout(() => {
+        showToast(
+          `${stacks.length} stack${stacks.length === 1 ? '' : 's'} detected — press S to expand`,
+        );
+        localStorage.setItem('shelf-stacks-hint-seen', '1');
+      }, 800);
+    }
+
     if (images.length === 0) {
       // Stay in card mode so the header (Exit Shoot, stage pill) and shoot
       // nav (sibling folder chips) remain available — just show an empty

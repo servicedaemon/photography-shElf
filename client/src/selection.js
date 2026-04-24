@@ -138,6 +138,15 @@ function markCurrent(status) {
 
 // Mark the whole stack containing the currently-focused card, then advance
 // past the stack to the next unmarked photo. Called for Shift+K/F/X/U.
+//
+// Design note: Shift+mark is the EXPLICIT "extend to stack" gesture and
+// triggers regardless of whether the stack is collapsed or expanded. This
+// is intentionally different from plain rotate/tag (which operate on the
+// focused frame, falling through to "whole stack" only on collapsed covers
+// because the cover is the only visible frame). The modifier key is the
+// unambiguous way to say "treat this as a group action" — matching how
+// photographers think of it: Shift = batch.
+//
 // Falls back to markCurrent if focused card isn't in a stack.
 export function markCurrentStack(status) {
   const images = getImages();
