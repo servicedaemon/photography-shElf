@@ -254,17 +254,17 @@ function showEmptyState() {
     <div class="welcome-flow" aria-label="Workflow overview">
       <div class="welcome-flow-step">
         <span class="welcome-flow-key">CULL</span>
-        <span class="welcome-flow-desc">Keep / favorite / reject every photo</span>
+        <span class="welcome-flow-desc">Mark every photo</span>
       </div>
       <span class="welcome-flow-arrow">→</span>
       <div class="welcome-flow-step">
         <span class="welcome-flow-key">HEROES</span>
-        <span class="welcome-flow-desc">Pick the best from your keeps</span>
+        <span class="welcome-flow-desc">Pick your best</span>
       </div>
       <span class="welcome-flow-arrow">→</span>
       <div class="welcome-flow-step">
         <span class="welcome-flow-key">FINAL</span>
-        <span class="welcome-flow-desc">Convert to DNG, hand off to Lightroom</span>
+        <span class="welcome-flow-desc">Convert + hand off</span>
       </div>
     </div>
     <div id="recent-shoots"></div>

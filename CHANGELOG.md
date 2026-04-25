@@ -3,6 +3,16 @@
 All notable changes to Shelf will be documented here.
 Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [1.2.2] — 2026-04-25
+
+Visual hotfix: welcome-screen workflow chips now render on a single row at every viewport width.
+
+### Fixed
+
+- **Welcome workflow chips wrapping to multiple rows** — even at full screen, the `CULL → HEROES → FINAL` row was breaking onto separate lines. Root cause: container had `max-width: 720px; flex-wrap: wrap` plus chips had `min-width: 160px`, and the long descriptions ("Convert to DNG, hand off to Lightroom") pushed the row past 720px no matter how wide the viewport was. The viewport never got a vote — the inner constraint forced wrap.
+- Chips now use `flex: 1 1 0; min-width: 0` so they share whatever horizontal space is available equally and shrink uniformly. Container is `flex-wrap: nowrap` to forbid wrapping. Descriptions tightened to "Mark every photo" / "Pick your best" / "Convert + hand off" to fit comfortably down to ~600px viewports.
+- `text-overflow: ellipsis` on the description span now correctly works as a fallback at extreme narrow viewports — needs `display: block` + `width: 100%` on a span for the clip to actually fire (sonnet review catch).
+
 ## [1.2.1] — 2026-04-24
 
 Pre-public-launch polish pass. No new features — fewer rough edges, cleaner code, more tests, friendlier first-run.
