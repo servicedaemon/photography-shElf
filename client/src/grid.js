@@ -436,10 +436,14 @@ function renderGrid() {
       const stackBadge = document.createElement('div');
       stackBadge.className = 'stack-badge';
       stackBadge.textContent = `◈${size}`;
-      stackBadge.title =
-        `${size} photos in this stack (within 5 seconds).\n` +
-        'S: expand/collapse • Shift+S: all\n' +
-        'Shift+K / F / X: mark whole stack • P: promote cover';
+      // Collapsed covers get a visual hover tooltip via CSS (.stack-badge::after);
+      // for non-cover/expanded badges the native title is the fallback affordance.
+      if (!(collapsed && isCover)) {
+        stackBadge.title =
+          `${size} photos in this stack (within 5 seconds).\n` +
+          'S: expand/collapse • Shift+S: all\n' +
+          'Shift+K / F / X: mark whole stack • P: promote cover';
+      }
       card.appendChild(stackBadge);
 
       card.addEventListener('mouseenter', () => {

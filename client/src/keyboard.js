@@ -285,6 +285,7 @@ function showShortcutsOverlay() {
         <div class="shortcut-row"><span class="desc">Promote focused frame to cover</span><span class="keys">P</span></div>
         <div class="shortcut-row"><span class="desc">Jump to next / previous stack</span><span class="keys">G / Shift+G</span></div>
         <div class="shortcut-row"><span class="desc">Mark whole stack (keep/fav/reject/unmark)</span><span class="keys">Shift+K/F/X/U</span></div>
+        <div class="shortcut-row"><span class="desc">On collapsed cover, plain K/F/X/U marks the whole stack too</span><span class="keys"></span></div>
       </div>
       <div class="shortcut-group">
         <h3>Navigation</h3>

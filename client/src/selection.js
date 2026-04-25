@@ -2,6 +2,8 @@
 // Click: toggle keep; Cmd+click: toggle reject; Double-click: toggle favorite
 // Keys: K=keep, F=favorite, X=reject, U=unmark (each advances to next unmarked)
 // Shift+click: create visual range selection; K/F/X/U apply to whole selection
+// On a collapsed-stack cover: K/F/X/U mark the whole stack (matching the
+// rotate/tag fall-through pattern — what you see is what you affect).
 
 import { bus, EVENTS } from './events.js';
 import {
@@ -11,6 +13,8 @@ import {
   updateCardStatus,
   getStackIndices,
   getStackSpanForIndex,
+  getStackIdFor,
+  isStackCollapsed,
 } from './grid.js';
 import { enqueueMark } from './mark-queue.js';
 
@@ -125,20 +129,30 @@ function markCurrent(status) {
   let index = getSelectedIndex();
   if (index < 0) index = 0;
   if (index >= images.length) return;
+
+  // Collapsed-stack cover → mark the whole stack. Matches the rotate/tag
+  // fall-through: when only the cover is visible, "what you see is what you
+  // affect." See markCurrentStack design note below.
+  const stackId = getStackIdFor(images[index].filename);
+  if (stackId !== null && isStackCollapsed(stackId)) {
+    markCurrentStack(status);
+    return;
+  }
+
   markSingle(index, status);
   advanceToNextUnmarked();
 }
 
 // Mark the whole stack containing the currently-focused card, then advance
-// past the stack to the next unmarked photo. Called for Shift+K/F/X/U.
+// past the stack to the next unmarked photo. Called for Shift+K/F/X/U, and
+// also re-entered from markCurrent when the focused card is a collapsed cover.
 //
 // Design note: Shift+mark is the EXPLICIT "extend to stack" gesture and
-// triggers regardless of whether the stack is collapsed or expanded. This
-// is intentionally different from plain rotate/tag (which operate on the
-// focused frame, falling through to "whole stack" only on collapsed covers
-// because the cover is the only visible frame). The modifier key is the
-// unambiguous way to say "treat this as a group action" — matching how
-// photographers think of it: Shift = batch.
+// triggers regardless of collapse state. Plain mark falls through to
+// stack-scope only when focused on a collapsed cover, mirroring how rotate
+// and tag already behave (`keyboard.js:rotationTargets`, `sidebar.js:getTagScope`).
+// The principle: when the cover is the only visible frame, treating it as a
+// batch is what photographers expect.
 //
 // Falls back to markCurrent if focused card isn't in a stack.
 export function markCurrentStack(status) {
