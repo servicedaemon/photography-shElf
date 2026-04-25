@@ -71,7 +71,6 @@ It is not a RAW developer — Lightroom (or Capture One, or Photoshop) is. It's 
 | Platform                  | File                    | Notes                        |
 | ------------------------- | ----------------------- | ---------------------------- |
 | **macOS (Apple Silicon)** | `Shelf-1.2.2-arm64.dmg` | Native for M-series Macs     |
-| **macOS (Intel)**         | `Shelf-1.2.2-x64.dmg`   | For Intel Macs               |
 | **Windows 10/11**         | `Shelf-Setup-1.2.2.exe` | NSIS installer, x64          |
 | **Linux — AppImage**      | `Shelf-1.2.2.AppImage`  | Universal, no install needed |
 | **Linux — Debian/Ubuntu** | `shelf_1.2.2_amd64.deb` | `sudo dpkg -i`               |

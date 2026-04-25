@@ -17,17 +17,8 @@ permissions:
 
 jobs:
   build-macos:
-    name: Build macOS (${{ matrix.arch }})
-    runs-on: ${{ matrix.runner }}
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - arch: arm64
-            runner: macos-14 # Apple Silicon
-          - arch: x64
-            runner: macos-13 # Intel
-
+    name: Build macOS (arm64)
+    runs-on: macos-14
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -49,14 +40,13 @@ jobs:
 
       - name: Package DMG
         env:
-          ARCH: ${{ matrix.arch }}
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
-        run: npx electron-builder --mac --"$ARCH" --publish never
+        run: npx electron-builder --mac --arm64 --publish never
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: shelf-macos-${{ matrix.arch }}
+          name: shelf-macos-arm64
           path: |
             dist-electron/*.dmg
             dist-electron/*.dmg.blockmap
