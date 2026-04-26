@@ -3,6 +3,26 @@
 All notable changes to Shelf will be documented here.
 Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [1.2.3] — 2026-04-26
+
+Stack interaction polish: the cover acts like the stack on every action. Hover the badge to learn the hotkey.
+
+### Changed
+
+- **Plain `K` / `F` / `X` / `U` on a collapsed-stack cover now marks the whole stack.** Matches what rotate (`⌥←`/`⌥→`) and tag already do — when only the cover is visible, "what you see is what you affect." `Shift+K/F/X/U` still always marks the whole stack regardless of collapse state. Closes a documented inconsistency in the original mark design (the `markCurrentStack` design note explicitly noted plain mark was the odd one out).
+
+### Added
+
+- **Hover tooltip on collapsed-stack badges** — hover the `◈N` badge on a collapsed cover to see the expand hotkey (`S TO EXPAND`). Glass background, amber hairline, mono uppercase — matches the coach-marks aesthetic. Only appears on collapsed covers; expanded stacks keep the existing native-title fallback.
+
+### Fixed
+
+- **Release artifact filenames now consistent across releases.** v1.2.2 shipped `Shelf.Setup.1.2.2.exe` (periods between words) and `photography-shelf_1.2.2_amd64.deb` (verbose package-name prefix) due to electron-builder's defaults. Added explicit `nsis.artifactName` and `deb.artifactName` overrides so v1.2.3+ ships clean `Shelf-Setup-1.2.3.exe` and `shelf_1.2.3_amd64.deb` like v1.2.1 did.
+
+### CI
+
+- macOS x64 (Intel) build dropped from the release matrix in v1.2.2 — five consecutive releases never produced an Intel artifact and the `macos-13` runner queue was unreliable. Apple Silicon Mac users still get a native build; Intel Mac users can run the arm64 DMG via Rosetta 2.
+
 ## [1.2.2] — 2026-04-25
 
 Visual hotfix: welcome-screen workflow chips now render on a single row at every viewport width.
