@@ -5,7 +5,7 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
 ## [1.2.3] — 2026-04-26
 
-Stack interaction polish: the cover acts like the stack on every action. Hover the badge to learn the hotkey.
+Stack interaction polish + lightbox filmstrip rewrite. Hover the collapsed-stack badge to learn the hotkey. The cover acts like the stack on every action. The filmstrip stays put when you navigate.
 
 ### Changed
 
@@ -17,6 +17,7 @@ Stack interaction polish: the cover acts like the stack on every action. Hover t
 
 ### Fixed
 
+- **Lightbox filmstrip no longer jumps to the start on every navigation.** Pressing arrow keys in the lightbox used to snap the bottom thumbnail bar to scrollLeft=0, then smooth-scroll back to the new active thumb — looking like the filmstrip was "reloading" on every key press. Root cause: `renderLightbox()` was rebuilding the entire `lightboxEl.innerHTML` on every navigation, replacing the filmstrip DOM and resetting its scroll. Refactored into `buildLightboxShell()` (one-time per shoot) + `updateLightboxFrame()` (lightweight per-navigation: just toggles classes on existing thumbs, swaps the main image src, updates info text). Filmstrip scroll position is now preserved between navigations, no thumbnail re-fetch flicker, and a `frameId` counter guards against stale hi-res preloads firing after rapid navigation.
 - **Release artifact filenames now consistent across releases.** v1.2.2 shipped `Shelf.Setup.1.2.2.exe` (periods between words) and `photography-shelf_1.2.2_amd64.deb` (verbose package-name prefix) due to electron-builder's defaults. Added explicit `nsis.artifactName` and `deb.artifactName` overrides so v1.2.3+ ships clean `Shelf-Setup-1.2.3.exe` and `shelf_1.2.3_amd64.deb` like v1.2.1 did.
 
 ### CI

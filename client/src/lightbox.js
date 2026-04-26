@@ -12,7 +12,12 @@ let isDragging = false;
 let dragStart = { x: 0, y: 0 };
 let imgOffset = { x: 0, y: 0 };
 
+// Incremented on every frame update; used to guard async hi-res loads against
+// stale onloads firing after the user has navigated past the requested image.
+let frameId = 0;
+
 const CYCLE = ['unmarked', 'keep', 'favorite'];
+const STATUS_CLASSES = ['keep', 'favorite', 'reject'];
 
 export function initLightbox() {
   lightboxEl = document.getElementById('lightbox');
@@ -22,15 +27,21 @@ export function initLightbox() {
 
   // Re-render lightbox when marks change (from keyboard shortcuts)
   bus.on(EVENTS.IMAGE_MARKED, ({ index }) => {
-    if (isOpen && index === currentIndex) renderLightbox();
+    if (isOpen && index === currentIndex) updateLightboxFrame();
   });
 
-  // Reset lightbox state on source change (including Exit Shoot → idle)
+  // Reset lightbox state on source change (including Exit Shoot → idle).
+  // Empty the DOM so the next openLightbox builds a fresh shell against the
+  // new image set instead of reusing a stale filmstrip.
   bus.on(EVENTS.MODE_CHANGED, () => {
     currentIndex = -1;
     isOpen = false;
     isZoomed = false;
-    if (lightboxEl) lightboxEl.classList.remove('active', 'closing');
+    isDragging = false;
+    if (lightboxEl) {
+      lightboxEl.classList.remove('active', 'closing');
+      lightboxEl.replaceChildren();
+    }
   });
 
   document.addEventListener('mousemove', handleDrag);
@@ -99,7 +110,7 @@ function cycleStatus(index) {
   const clean = current === 'reject' ? 'unmarked' : current;
   const newStatus = CYCLE[(CYCLE.indexOf(clean) + 1) % CYCLE.length];
   markSingle(index, newStatus);
-  renderLightbox();
+  updateLightboxFrame();
 }
 
 function rejectStatus(index) {
@@ -108,80 +119,64 @@ function rejectStatus(index) {
   const current = img.status || 'unmarked';
   const newStatus = current === 'reject' ? 'unmarked' : 'reject';
   markSingle(index, newStatus);
-  renderLightbox();
+  updateLightboxFrame();
 }
 
+// Dispatcher: build the shell once per shoot, then update only the per-frame
+// pieces on every navigation/mark. Keeping the filmstrip DOM stable preserves
+// scroll position and avoids reloading thumbnail <img>s on every key press.
 function renderLightbox() {
   const images = getImages();
   const img = images[currentIndex];
   if (!img) return;
 
-  const status = img.status || 'unmarked';
+  const filmstrip = lightboxEl.querySelector('.filmstrip');
+  if (!filmstrip || filmstrip.children.length !== images.length) {
+    buildLightboxShell(images);
+  }
+  updateLightboxFrame();
+}
 
-  // Status badge
-  const statusHtml =
-    status !== 'unmarked' ? `<div class="lb-status ${status}">${status}</div>` : '';
-
-  // Main image
-  const pUrl = previewUrl(img.filename);
-  const tUrl = thumbUrl(img.filename);
-
-  // Bottom bar with marking controls
-  const statusButtons = ['keep', 'favorite', 'reject']
-    .map((s) => {
-      const active = status === s ? ' active' : '';
-      return `<button class="lb-mark-btn lb-mark-${s}${active}" data-status="${s}">${s}</button>`;
-    })
-    .join('');
-
-  // Build filmstrip. Highlight siblings in the current stack so the user can
-  // spot which nearby frames are part of the same burst while scrolling.
-  const currentStackId = getStackIdFor(img.filename);
+// One-time DOM build per shoot. Constructs the structural elements and
+// attaches all event listeners. Called only when the image set changes
+// (open after MODE_CHANGED clears the DOM, or first open).
+function buildLightboxShell(images) {
+  // Build filmstrip thumbs (positions don't change within a shoot; only
+  // their classes do, so we render them once here).
   let filmstripHtml = '<div class="filmstrip">';
   images.forEach((fi, i) => {
-    const fStatus = fi.status || 'unmarked';
-    const active = i === currentIndex ? ' active' : '';
-    const statusClass = fStatus !== 'unmarked' ? ` ${fStatus}` : '';
-    const fStackId = getStackIdFor(fi.filename);
-    const siblingClass =
-      currentStackId !== null && fStackId === currentStackId ? ' filmstrip-stack-sibling' : '';
     const fThumb = thumbUrl(fi.filename);
-    filmstripHtml += `<img class="filmstrip-thumb${active}${statusClass}${siblingClass}" data-index="${i}" src="${fThumb}" alt="">`;
+    filmstripHtml += `<img class="filmstrip-thumb" data-index="${i}" src="${fThumb}" alt="">`;
   });
   filmstripHtml += '</div>';
 
-  lightboxEl.innerHTML = `
-    ${statusHtml}
+  // Static structural HTML — image src, info text, status badge, button
+  // active states are all set by updateLightboxFrame.
+  const shellHtml = `
+    <div class="lb-status-slot"></div>
     <div class="lb-image-container">
-      <img id="lb-img" src="${tUrl}" alt="" draggable="false">
+      <img id="lb-img" alt="" draggable="false">
     </div>
     <div class="lb-bottom-bar">
-      <div class="lb-info">${img.filename} (${currentIndex + 1}/${images.length})</div>
-      <div class="lb-marks">${statusButtons}</div>
+      <div class="lb-info"></div>
+      <div class="lb-marks">
+        <button class="lb-mark-btn lb-mark-keep" data-status="keep">keep</button>
+        <button class="lb-mark-btn lb-mark-favorite" data-status="favorite">favorite</button>
+        <button class="lb-mark-btn lb-mark-reject" data-status="reject">reject</button>
+      </div>
     </div>
     ${filmstripHtml}
   `;
+  lightboxEl.innerHTML = shellHtml;
 
-  // Progressive load: crossfade from thumb to full preview
+  attachShellListeners();
+}
+
+function attachShellListeners() {
   const lbImg = document.getElementById('lb-img');
-  const hiRes = new Image();
-  hiRes.onload = () => {
-    if (isOpen && currentIndex === images.indexOf(img)) {
-      // Fade out, swap src, fade in — smooth instead of a pop
-      lbImg.style.transition = 'opacity 0.22s ease';
-      lbImg.style.opacity = '0';
-      setTimeout(() => {
-        lbImg.src = hiRes.src;
-        // Reflow then fade back in
-        requestAnimationFrame(() => {
-          lbImg.style.opacity = '1';
-        });
-      }, 120);
-    }
-  };
-  hiRes.src = pUrl;
+  if (!lbImg) return;
 
-  // Click on image = cycle status
+  // Click on image = cycle status (or reject with cmd/ctrl)
   lbImg.addEventListener('click', (e) => {
     if (isZoomed) return;
     if (e.metaKey) {
@@ -235,19 +230,22 @@ function renderLightbox() {
     );
   }
 
-  // Mark buttons
+  // Mark buttons (delegation via direct binding — the buttons exist for the
+  // life of the shell)
   lightboxEl.querySelectorAll('.lb-mark-btn').forEach((btn) => {
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
+      const images = getImages();
       const targetStatus = btn.dataset.status;
-      const current = images[currentIndex].status || 'unmarked';
+      const current = images[currentIndex]?.status || 'unmarked';
       const newStatus = current === targetStatus ? 'unmarked' : targetStatus;
       markSingle(currentIndex, newStatus);
-      renderLightbox();
+      updateLightboxFrame();
     });
   });
 
-  // Filmstrip click
+  // Filmstrip — single delegated listener; survives navigation since we
+  // never rebuild the filmstrip DOM
   const filmstrip = lightboxEl.querySelector('.filmstrip');
   if (filmstrip) {
     filmstrip.addEventListener('click', (e) => {
@@ -257,15 +255,95 @@ function renderLightbox() {
         currentIndex = i;
         setSelectedIndex(i);
         isZoomed = false;
-        renderLightbox();
+        updateLightboxFrame();
       }
     });
+  }
+}
 
-    // Scroll filmstrip to center current
-    const activeThumb = filmstrip.querySelector('.filmstrip-thumb.active');
-    if (activeThumb) {
-      activeThumb.scrollIntoView({ inline: 'center', behavior: 'smooth' });
+// Per-frame state sync: image, info text, status badge, mark-button active
+// classes, filmstrip thumb classes, scroll into view. Does NOT touch the
+// filmstrip's children — its scroll position is preserved.
+function updateLightboxFrame() {
+  const images = getImages();
+  const img = images[currentIndex];
+  if (!img) return;
+
+  const myFrameId = ++frameId;
+  const status = img.status || 'unmarked';
+
+  // Status badge slot (only mutates a small inner container, not the whole DOM)
+  const slot = lightboxEl.querySelector('.lb-status-slot');
+  if (slot) {
+    if (status !== 'unmarked') {
+      const badge = document.createElement('div');
+      badge.className = `lb-status ${status}`;
+      badge.textContent = status;
+      slot.replaceChildren(badge);
+    } else {
+      slot.replaceChildren();
     }
+  }
+
+  // Info text
+  const info = lightboxEl.querySelector('.lb-info');
+  if (info) info.textContent = `${img.filename} (${currentIndex + 1}/${images.length})`;
+
+  // Mark button active states
+  lightboxEl.querySelectorAll('.lb-mark-btn').forEach((btn) => {
+    btn.classList.toggle('active', btn.dataset.status === status);
+  });
+
+  // Image: reset previous fade/transform, set thumb src instantly, preload
+  // preview and crossfade in. The frameId guard discards stale onloads if
+  // the user has navigated past this image during the preview load.
+  const lbImg = document.getElementById('lb-img');
+  if (lbImg) {
+    lbImg.classList.remove('zoomed');
+    lbImg.style.transform = '';
+    lbImg.style.transition = '';
+    lbImg.style.opacity = '1';
+    lbImg.src = thumbUrl(img.filename);
+
+    const hiRes = new Image();
+    hiRes.onload = () => {
+      if (!isOpen || frameId !== myFrameId) return;
+      lbImg.style.transition = 'opacity 0.22s ease';
+      lbImg.style.opacity = '0';
+      setTimeout(() => {
+        if (frameId !== myFrameId) return;
+        lbImg.src = hiRes.src;
+        requestAnimationFrame(() => {
+          if (frameId !== myFrameId) return;
+          lbImg.style.opacity = '1';
+        });
+      }, 120);
+    };
+    hiRes.src = previewUrl(img.filename);
+  }
+
+  // Filmstrip thumb classes — toggle in place. No DOM replacement, so the
+  // filmstrip's scrollLeft is preserved between navigations.
+  const currentStackId = getStackIdFor(img.filename);
+  const thumbs = lightboxEl.querySelectorAll('.filmstrip-thumb');
+  thumbs.forEach((thumb, i) => {
+    const fi = images[i];
+    if (!fi) return;
+    const fStatus = fi.status || 'unmarked';
+    const fStackId = getStackIdFor(fi.filename);
+    thumb.classList.toggle('active', i === currentIndex);
+    STATUS_CLASSES.forEach((s) => thumb.classList.toggle(s, fStatus === s));
+    thumb.classList.toggle(
+      'filmstrip-stack-sibling',
+      currentStackId !== null && fStackId === currentStackId,
+    );
+  });
+
+  // Smooth-scroll the active thumb into view. With stable DOM, this is a
+  // small movement when navigating one-by-one; only large on first open.
+  const activeThumb = lightboxEl.querySelector('.filmstrip-thumb.active');
+  if (activeThumb) {
+    activeThumb.scrollIntoView({ inline: 'center', behavior: 'smooth' });
   }
 }
 
