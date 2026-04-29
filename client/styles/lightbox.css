@@ -88,12 +88,25 @@
   cursor: grabbing;
 }
 
-/* ─── Status indicator ──────────────────────────────────────────────── */
+/* ─── Status + stack badge slot ─────────────────────────────────────── */
 
-.lb-status {
+/* The slot is the absolute-positioned flex container; status + stack
+   badges flow inside as flex children, stacked vertically with a small
+   gap. Keeping the positioning on the slot (not on each badge) means
+   either or both badges can render without coordination. */
+.lb-status-slot {
   position: absolute;
   top: 20px;
   right: 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  z-index: 2;
+  pointer-events: none; /* badges aren't interactive — only show state */
+}
+
+.lb-status {
   padding: 5px 14px;
   border-radius: 2px;
   font-family: var(--font-mono);
@@ -101,7 +114,6 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.2em;
-  z-index: 2;
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
 }
@@ -118,6 +130,44 @@
   background: rgba(224, 168, 46, 0.95);
   color: #000;
   box-shadow: 0 0 24px rgba(224, 168, 46, 0.4);
+}
+
+/* Stack badge: shown when the current image is part of a burst. The
+   ◈ glyph mirrors the grid's collapsed-stack cover badge so users
+   carry the visual mapping between views. */
+.lb-stack-badge {
+  pointer-events: auto; /* allow native title tooltip on hover */
+  padding: 4px 10px;
+  border-radius: 2px;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  color: var(--amber);
+  background: rgba(0, 0, 0, 0.6);
+  border: 1px solid rgba(224, 168, 46, 0.5);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+/* Pulse on stack-key fire — restarted via void offsetWidth in JS. The
+   amber glow swells and fades, mirroring the grid's mark-flash pattern. */
+@keyframes lb-stack-pulse {
+  0% {
+    box-shadow: 0 0 0 rgba(224, 168, 46, 0);
+    transform: scale(1);
+  }
+  35% {
+    box-shadow: 0 0 28px rgba(224, 168, 46, 0.7);
+    transform: scale(1.06);
+  }
+  100% {
+    box-shadow: 0 0 0 rgba(224, 168, 46, 0);
+    transform: scale(1);
+  }
+}
+.lb-stack-pulse {
+  animation: lb-stack-pulse 0.55s ease-out;
 }
 
 /* ─── Bottom info bar ───────────────────────────────────────────────── */
@@ -224,6 +274,15 @@
   border-radius: 2px;
 }
 
+/* Each thumb is wrapped so the cover-frame indicator dot can sit above
+   the image without affecting the existing thumb classes that drive
+   active/status/sibling-underline styling. */
+.filmstrip-thumb-wrap {
+  position: relative;
+  flex-shrink: 0;
+  display: inline-block;
+}
+
 .filmstrip-thumb {
   width: 62px;
   height: 62px;
@@ -234,6 +293,28 @@
   opacity: 0.45;
   transition: all var(--transition-fast);
   flex-shrink: 0;
+  display: block;
+}
+
+/* Cover dot: small amber circle on the wrapper of whichever filmstrip
+   frame is the current stack's cover. Pointer-events disabled so clicks
+   fall through to the img beneath. Hidden by default; shown when the
+   wrapper has .is-cover. */
+.lb-cover-dot {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--amber);
+  box-shadow: 0 0 6px rgba(224, 168, 46, 0.8);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity var(--transition-fast);
+}
+.filmstrip-thumb-wrap.is-cover .lb-cover-dot {
+  opacity: 1;
 }
 
 .filmstrip-thumb:hover {

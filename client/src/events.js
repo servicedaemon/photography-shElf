@@ -40,4 +40,9 @@ export const EVENTS = {
   MARK_ROLLBACK: 'mark:rollback',
   REFRESH: 'refresh',
   CONVERT_COMPLETE: 'convert:complete',
+
+  // Stack interactions — emitted so the lightbox can flash feedback when
+  // S / Shift+S / P fire while it's open (the grid handles its own redraw).
+  STACK_TOGGLED: 'stack:toggled', // detail: { stackId, collapsed, scope: 'one' | 'all' }
+  COVER_PROMOTED: 'stack:cover-promoted', // detail: { stackId, filename }
 };

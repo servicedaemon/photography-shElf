@@ -133,13 +133,15 @@ export function toggleStackAtCurrent() {
   if (stackId === undefined) return false;
   if (collapsedStackIds.has(stackId)) collapsedStackIds.delete(stackId);
   else collapsedStackIds.add(stackId);
+  const collapsed = collapsedStackIds.has(stackId);
   // If collapsing and focus isn't on the cover, move focus to the cover so it stays visible
-  if (collapsedStackIds.has(stackId)) {
+  if (collapsed) {
     const cover = coverFilenameFor(stackId);
     const coverIndex = images.findIndex((i) => i.filename === cover);
     if (coverIndex >= 0) selectedIndex = coverIndex;
   }
   renderGrid();
+  bus.emit(EVENTS.STACK_TOGGLED, { stackId, collapsed, scope: 'one' });
   return true;
 }
 
@@ -159,6 +161,7 @@ export function toggleAllStacks() {
     collapsedStackIds = new Set();
   }
   renderGrid();
+  bus.emit(EVENTS.STACK_TOGGLED, { stackId: null, collapsed: anyExpanded, scope: 'all' });
 }
 
 // Promote the currently-focused image to be the cover of its stack.
@@ -171,6 +174,7 @@ export function promoteCoverAtCurrent() {
   if (stackId === undefined) return false;
   coverByStackId.set(stackId, img.filename);
   renderGrid();
+  bus.emit(EVENTS.COVER_PROMOTED, { stackId, filename: img.filename });
   return true;
 }
 

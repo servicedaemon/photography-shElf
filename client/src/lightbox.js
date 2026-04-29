@@ -1,7 +1,15 @@
 // Lightbox — spacebar toggle, full-window preview with marking
 
 import { bus, EVENTS } from './events.js';
-import { getImages, setSelectedIndex, previewUrl, getStackIdFor } from './grid.js';
+import {
+  getImages,
+  setSelectedIndex,
+  previewUrl,
+  getStackIdFor,
+  getStackMembers,
+  coverFilenameFor,
+  isStackCollapsed,
+} from './grid.js';
 import { markSingle } from './selection.js';
 
 let lightboxEl = null;
@@ -28,6 +36,22 @@ export function initLightbox() {
   // Re-render lightbox when marks change (from keyboard shortcuts)
   bus.on(EVENTS.IMAGE_MARKED, ({ index }) => {
     if (isOpen && index === currentIndex) updateLightboxFrame();
+  });
+
+  // Stack feedback: when S / Shift+S / P fire while the lightbox is open,
+  // refresh the badge (state may have changed) and pulse it so the user
+  // gets visible confirmation that the keypress did something.
+  bus.on(EVENTS.STACK_TOGGLED, () => {
+    if (isOpen) {
+      updateLightboxFrame();
+      pulseBadge();
+    }
+  });
+  bus.on(EVENTS.COVER_PROMOTED, () => {
+    if (isOpen) {
+      updateLightboxFrame();
+      pulseBadge();
+    }
   });
 
   // Reset lightbox state on source change (including Exit Shoot → idle).
@@ -182,11 +206,16 @@ function renderLightbox() {
 // (open after MODE_CHANGED clears the DOM, or first open).
 function buildLightboxShell(images) {
   // Build filmstrip thumbs (positions don't change within a shoot; only
-  // their classes do, so we render them once here).
+  // their classes do, so we render them once here). Each thumb is wrapped
+  // so we can overlay a cover-frame indicator dot via the wrapper class.
   let filmstripHtml = '<div class="filmstrip">';
   images.forEach((fi, i) => {
     const fThumb = thumbUrl(fi.filename);
-    filmstripHtml += `<img class="filmstrip-thumb" data-index="${i}" src="${fThumb}" alt="">`;
+    filmstripHtml +=
+      `<div class="filmstrip-thumb-wrap">` +
+      `<img class="filmstrip-thumb" data-index="${i}" src="${fThumb}" alt="">` +
+      `<span class="lb-cover-dot" aria-hidden="true"></span>` +
+      `</div>`;
   });
   filmstripHtml += '</div>';
 
@@ -317,23 +346,46 @@ function updateLightboxFrame() {
 
   const myFrameId = ++frameId;
   const status = img.status || 'unmarked';
+  const currentStackId = getStackIdFor(img.filename);
 
-  // Status badge slot (only mutates a small inner container, not the whole DOM)
+  // Status badge slot — vertically stacks the status pill (when present)
+  // and the stack badge (when current image is part of a burst). The slot
+  // itself is `display: flex; flex-direction: column` so order is determined
+  // by appendChild call order: status first, stack second.
   const slot = lightboxEl.querySelector('.lb-status-slot');
   if (slot) {
+    slot.replaceChildren();
     if (status !== 'unmarked') {
       const badge = document.createElement('div');
       badge.className = `lb-status ${status}`;
       badge.textContent = status;
-      slot.replaceChildren(badge);
-    } else {
-      slot.replaceChildren();
+      slot.appendChild(badge);
+    }
+    if (currentStackId !== null) {
+      const members = getStackMembers(currentStackId);
+      const stackBadge = document.createElement('div');
+      stackBadge.className = 'lb-stack-badge';
+      const collapsedNote = isStackCollapsed(currentStackId) ? ' (collapsed)' : '';
+      stackBadge.textContent = `◈ ${members.length}`;
+      stackBadge.title = `Burst of ${members.length}${collapsedNote} — S to toggle, P to set cover`;
+      slot.appendChild(stackBadge);
     }
   }
 
-  // Info text
+  // Info text — append "burst N/M" suffix when the current image is part
+  // of a stack so position-in-burst is visible alongside position-in-shoot.
+  // Uses getStackMembers (server's group order = capture order) for the
+  // burst index, anchored to filename rather than images[] index.
   const info = lightboxEl.querySelector('.lb-info');
-  if (info) info.textContent = `${img.filename} (${currentIndex + 1}/${images.length})`;
+  if (info) {
+    if (currentStackId !== null) {
+      const members = getStackMembers(currentStackId);
+      const pos = members.indexOf(img.filename) + 1;
+      info.textContent = `${img.filename} (${currentIndex + 1}/${images.length} · burst ${pos}/${members.length})`;
+    } else {
+      info.textContent = `${img.filename} (${currentIndex + 1}/${images.length})`;
+    }
+  }
 
   // Mark button active states
   lightboxEl.querySelectorAll('.lb-mark-btn').forEach((btn) => {
@@ -378,20 +430,26 @@ function updateLightboxFrame() {
   }
 
   // Filmstrip thumb classes — toggle in place. No DOM replacement, so the
-  // filmstrip's scrollLeft is preserved between navigations.
-  const currentStackId = getStackIdFor(img.filename);
+  // filmstrip's scrollLeft is preserved between navigations. The cover-dot
+  // overlay sits on the wrapper (.filmstrip-thumb-wrap.is-cover) and only
+  // shows for the cover frame WITHIN the current stack — not every stack's
+  // cover, which would be visual noise.
   const thumbs = lightboxEl.querySelectorAll('.filmstrip-thumb');
   thumbs.forEach((thumb, i) => {
     const fi = images[i];
     if (!fi) return;
     const fStatus = fi.status || 'unmarked';
     const fStackId = getStackIdFor(fi.filename);
+    const inCurrentStack = currentStackId !== null && fStackId === currentStackId;
     thumb.classList.toggle('active', i === currentIndex);
     STATUS_CLASSES.forEach((s) => thumb.classList.toggle(s, fStatus === s));
-    thumb.classList.toggle(
-      'filmstrip-stack-sibling',
-      currentStackId !== null && fStackId === currentStackId,
-    );
+    thumb.classList.toggle('filmstrip-stack-sibling', inCurrentStack);
+    const wrap = thumb.parentElement; // .filmstrip-thumb-wrap
+    if (wrap) {
+      const isCover =
+        inCurrentStack && coverFilenameFor(fStackId) === fi.filename;
+      wrap.classList.toggle('is-cover', isCover);
+    }
   });
 
   // Smooth-scroll the active thumb into view. With stable DOM, this is a
@@ -400,6 +458,18 @@ function updateLightboxFrame() {
   if (activeThumb) {
     activeThumb.scrollIntoView({ inline: 'center', behavior: 'smooth' });
   }
+}
+
+// Restart the badge pulse animation. Called when the user fires a stack
+// key (S / Shift+S / P) while the lightbox is open — the underlying state
+// changes silently, so this gives visible confirmation. Mirrors the grid's
+// mark-flash pattern: remove class, force reflow via offsetWidth, re-add.
+function pulseBadge() {
+  const badge = lightboxEl?.querySelector('.lb-stack-badge');
+  if (!badge) return;
+  badge.classList.remove('lb-stack-pulse');
+  void badge.offsetWidth;
+  badge.classList.add('lb-stack-pulse');
 }
 
 function handleDrag(e) {

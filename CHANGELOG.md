@@ -3,6 +3,27 @@
 All notable changes to Shelf will be documented here.
 Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [1.3.1] — 2026-04-29
+
+Stack-aware UI inside the lightbox. The keys already worked; now you can see them work.
+
+### Added
+
+- **Stack badge in the lightbox.** When the current image is part of a burst, a `◈ N` pill appears in the top-right corner showing the stack size. Hover for a tooltip with the stack-key hints (`S to toggle, P to set cover`). The pill amber-pulses whenever you press `S`, `Shift+S`, or `P` in the lightbox so you have visible confirmation that the keypress did something — previously the underlying state changed silently behind the lightbox.
+- **Position-in-burst in the info bar.** The filename line now reads `IMG_1442.CR3 (4/57 · burst 1/5)` when the photo is part of a stack — singletons stay clean at `(4/57)`. The burst index is anchored to the stack's group definition (capture order) via `getStackMembers().indexOf(filename) + 1`.
+- **Cover-frame dot.** A small amber dot in the top-left corner of the filmstrip thumb that's the current stack's cover. Press `P` on any frame to promote it to cover and watch the dot move. Only the current stack's cover is dotted — other stacks' covers don't display the marker, keeping the filmstrip uncluttered.
+- **`STACK_TOGGLED` and `COVER_PROMOTED` events** on the bus. `grid.js` now emits these from the three stack-mutation functions; lightbox listens and refreshes its UI in response. Future surfaces (e.g. a "burst completion" toast) can hook the same events without re-wiring grid internals.
+
+### Changed
+
+- **`.lb-status-slot` is now a flex column.** The status pill (when present) and stack badge stack vertically with a 6px gap, both right-aligned. Either or both render without coordination — the slot positions, children flow.
+- **Filmstrip thumbs are now wrapped** in `.filmstrip-thumb-wrap` divs to support the cover-dot overlay. The img still carries `.filmstrip-thumb` and `data-index`, so click delegation and existing CSS rules are unchanged. Pointer-events on the dot are disabled so clicks fall through to the image beneath.
+
+### Under the hood
+
+- 67 server tests pass, lint baseline 0 warnings/errors.
+- Sonnet code review: no blockers, no critical issues. The pulse lifecycle, DOM delegation, wrapper structure, and badge pointer-events inheritance all verified correct. Shipped without changes from review.
+
 ## [1.3.0] — 2026-04-28
 
 Two features for real culling work: zoom that survives stack navigation, and a settable library root so new shoots land where you actually keep your photos.
