@@ -15,6 +15,37 @@ async function openFolder(mainWindow) {
   );
 }
 
+// Pick a new library root and persist it via /api/config. The renderer
+// gets a `shelf:library-root-changed` event so it can show a toast.
+async function setLibraryRoot(mainWindow, serverPort) {
+  const result = await dialog.showOpenDialog(mainWindow, {
+    properties: ['openDirectory', 'createDirectory'],
+    title: 'Choose where Shelf saves new shoots',
+    message: 'Each new shoot becomes a folder under this root with unsorted/keeps/favorites/rejects subfolders.',
+  });
+  if (result.canceled || result.filePaths.length === 0) return;
+
+  const chosenPath = result.filePaths[0];
+  try {
+    const res = await fetch(`http://localhost:${serverPort}/api/config`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ libraryRoot: chosenPath }),
+    });
+    if (!res.ok) throw new Error(`server responded ${res.status}`);
+  } catch (e) {
+    dialog.showErrorBox(
+      'Failed to save library root',
+      `Couldn't write to the Shelf config: ${e.message}\nThe folder you picked is unchanged on disk.`,
+    );
+    return;
+  }
+
+  mainWindow.webContents.executeJavaScript(
+    `window.dispatchEvent(new CustomEvent('shelf:library-root-changed', { detail: { path: ${JSON.stringify(chosenPath)} } }))`,
+  );
+}
+
 async function fetchRecentShoots(serverPort) {
   try {
     const res = await fetch(`http://localhost:${serverPort}/api/config`);
@@ -70,6 +101,11 @@ export async function buildMenu({ mainWindow, isDev, serverPort }) {
           click: () => openFolder(mainWindow),
         },
         { label: 'Open Recent', submenu: recentSubmenu(recent, mainWindow) },
+        { type: 'separator' },
+        {
+          label: 'Set Library Root…',
+          click: () => setLibraryRoot(mainWindow, serverPort),
+        },
         { type: 'separator' },
         isMac ? { role: 'close' } : { role: 'quit' },
       ],

@@ -93,7 +93,7 @@ imageRoutes.get('/preview/:filename', async (req, res) => {
 // Folder-specific thumbnail and preview endpoints
 imageRoutes.get('/folder/:folder/images', async (req, res) => {
   const config = getConfig();
-  const sortDir = config.sortDir;
+  const sortDir = config.libraryRoot;
   if (!sortDir) return res.json({ images: [], stacks: [] });
 
   const folderPath = path.join(sortDir, req.params.folder);
@@ -142,7 +142,7 @@ imageRoutes.get('/folder/:folder/thumb/:filename', async (req, res) => {
   if (!validateFilename(filename)) return res.status(400).send('Bad filename');
 
   const config = getConfig();
-  const sortDir = config.sortDir;
+  const sortDir = config.libraryRoot;
   if (!sortDir) return res.status(400).send('No sort directory configured');
 
   const folderPath = path.join(sortDir, folder);
@@ -166,7 +166,7 @@ imageRoutes.get('/folder/:folder/preview/:filename', async (req, res) => {
   if (!validateFilename(filename)) return res.status(400).send('Bad filename');
 
   const config = getConfig();
-  const sortDir = config.sortDir;
+  const sortDir = config.libraryRoot;
   if (!sortDir) return res.status(400).send('No sort directory configured');
 
   const folderPath = path.join(sortDir, folder);

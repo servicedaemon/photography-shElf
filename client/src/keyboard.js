@@ -18,7 +18,7 @@ import {
 } from './grid.js';
 import { getSelectionRange } from './selection.js';
 import { showToast } from './undo.js';
-import { isLightboxOpen, navigateLightbox, toggleLightbox } from './lightbox.js';
+import { isLightboxOpen, navigateLightbox, toggleLightbox, toggleZoom } from './lightbox.js';
 import {
   keepAndAdvance,
   favoriteAndAdvance,
@@ -174,6 +174,13 @@ function handleKeydown(e) {
       if (e.metaKey || e.ctrlKey) {
         e.preventDefault();
         bus.emit(EVENTS.UNDO);
+      } else if (isLightboxOpen()) {
+        // Plain `z` toggles lightbox zoom. Combined with arrow-key navigation
+        // inside a stack, lets you compare focus/sharpness across burst
+        // siblings at the same magnification without moving your hand to
+        // the trackpad. (Cmd/Ctrl+Z above is the global undo.)
+        e.preventDefault();
+        toggleZoom();
       }
       break;
 

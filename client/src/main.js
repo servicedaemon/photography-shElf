@@ -91,6 +91,13 @@ document.addEventListener('DOMContentLoaded', async () => {
   window.addEventListener('shelf:load-folder', (e) => {
     if (e.detail && e.detail.path) loadSource(e.detail.path);
   });
+
+  // Confirmation toast after the user picks a new library root via the
+  // File menu. The actual /api/config write happens in the main process.
+  window.addEventListener('shelf:library-root-changed', (e) => {
+    const p = e.detail?.path;
+    if (p) showToast(`Library root: ${p}`, 'success');
+  });
 });
 
 // --- Header ---
@@ -654,7 +661,8 @@ async function handleSort() {
 
   // Detect whether the user is inside an existing shoot. If so, the default
   // action is "sort in place" (route marks into the shoot's sibling folders).
-  // If not, the default is a new dated bundle in ~/Pictures/sorted/.
+  // If not, the default is a new shoot folder under the configured library
+  // root.
   let shootContext = null;
   try {
     const ctxRes = await fetch(`/api/shoot-context?source=${encodeURIComponent(source)}`);
@@ -666,12 +674,26 @@ async function handleSort() {
     /* fall through */
   }
 
-  // Unified sort modal with a "Save to a new dated shoot folder" checkbox.
+  // Read the configured library root so the modal can show where files
+  // will actually land.
+  let libraryRoot = '';
+  try {
+    const cfgRes = await fetch('/api/config');
+    if (cfgRes.ok) {
+      const cfg = await cfgRes.json();
+      libraryRoot = cfg.libraryRoot || '';
+    }
+  } catch {
+    /* fall through */
+  }
+
+  // Unified sort modal with a "Save to a new shoot folder" checkbox.
   // Default: unchecked when inside a shoot (sort in place), checked when
   // starting fresh from a camera card / loose folder.
   const decision = await showSortModal({
     counts: { keeps, favs, rejects, unsorted, markedTotal, total: images.length },
     shootContext,
+    libraryRoot,
   });
   if (!decision) return;
 
@@ -684,11 +706,12 @@ async function handleSort() {
 
 // The unified sort dialog. Returns { mode: 'in-place' } | { mode: 'new', name }
 // | null (cancelled).
-function showSortModal({ counts, shootContext }) {
+function showSortModal({ counts, shootContext, libraryRoot }) {
   return new Promise((resolve) => {
     const overlay = document.getElementById('modal-overlay');
     const { keeps, favs, rejects, unsorted, markedTotal } = counts;
     const insideShoot = !!shootContext;
+    const libraryRootDisplay = libraryRoot || '(default location)';
 
     while (overlay.firstChild) overlay.removeChild(overlay.firstChild);
 
@@ -726,7 +749,7 @@ function showSortModal({ counts, shootContext }) {
     check.checked = !insideShoot; // default ON for loose folders / card imports
     if (!insideShoot) check.disabled = true;
     const checkLabel = document.createElement('span');
-    checkLabel.textContent = 'Create as a new dated shoot instead';
+    checkLabel.textContent = 'Create as a new shoot instead';
     checkRow.append(check, checkLabel);
     if (!insideShoot) checkRow.classList.add('is-disabled');
     modal.appendChild(checkRow);
@@ -745,7 +768,7 @@ function showSortModal({ counts, shootContext }) {
       const newShoot = check.checked;
       nameWrap.style.display = newShoot ? '' : 'none';
       if (newShoot) {
-        explainer.textContent = `Creates a new dated bundle — Keeps / Favorites / Rejects / Unsorted folders in ~/Pictures/sorted/ using the shoot name below.`;
+        explainer.textContent = `Creates a new shoot folder under ${libraryRootDisplay} with unsorted/keeps/favorites/rejects subfolders. Change the location in File → Set Library Root…`;
       } else {
         // shootContext is guaranteed to exist here: the checkbox is disabled
         // when shootContext is null, so this branch can't run. Belt-and-suspenders.
@@ -874,14 +897,10 @@ async function doSortNewBundle(name) {
     const data = await res.json();
     if (data.errors) showToast(`${data.errors.length} files had errors`, 'error');
 
-    // Compute the keeps folder path for the Pick Heroes bridge button
-    const now = new Date();
-    const dateStr = String(now.getMonth() + 1).padStart(2, '0') + '-' + now.getFullYear();
-    const safeName = name.replace(/[^a-zA-Z0-9 _-]/g, '').trim();
-    const configRes = await fetch('/api/config');
-    const config = await configRes.json();
-    const sortDir = config.sortDir || '';
-    const keepsPath = sortDir ? `${sortDir}/Keeps - ${dateStr} - ${safeName}` : null;
+    // The server now returns the keeps subfolder path directly — no
+    // client-side reconstruction needed (which was always brittle when
+    // the server's layout convention changed).
+    const keepsPath = data.keepsDir || null;
 
     // Refresh the source grid so marks clear (source is now empty for the
     // sorted items — everything was moved out).
@@ -1017,24 +1036,34 @@ async function handlePromoteFavorites() {
   if (!confirmed) return;
 
   // Snapshot source so we can bail if the user navigated away mid-request.
+  // Passing the absolute source path to /api/folder-mark + /api/promote-favorites
+  // works for both nested (`<shoot>/keeps/`) and flat (`Keeps - MM-YYYY - Name/`)
+  // layouts — the leaf-name split that worked under flat-only is gone.
   const initialSource = source;
-  const folderName = initialSource.split(/[/\\]/).pop();
 
   try {
+    // Surface non-2xx responses as throws so the catch below shows a real
+    // error toast — fetch() only throws on network failure, not status.
     await Promise.all(
-      favs.map((img) =>
-        fetch(`/api/folder/${encodeURIComponent(folderName)}/mark`, {
+      favs.map(async (img) => {
+        const r = await fetch(`/api/folder-mark`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ filename: img.filename, status: 'favorite' }),
-        }),
-      ),
+          body: JSON.stringify({ source: initialSource, filename: img.filename, status: 'favorite' }),
+        });
+        if (!r.ok) throw new Error(`mark ${img.filename} failed (${r.status})`);
+      }),
     );
 
-    const res = await fetch(`/api/folder/${encodeURIComponent(folderName)}/save-favorites`, {
+    const res = await fetch(`/api/promote-favorites`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ source: initialSource }),
     });
+    if (!res.ok) {
+      const errText = await res.text().catch(() => res.statusText);
+      throw new Error(`promote failed (${res.status}): ${errText}`);
+    }
     const data = await res.json();
 
     // User exited the shoot or loaded a different one while we were working.
@@ -1045,7 +1074,9 @@ async function handlePromoteFavorites() {
     if (window.shelf && window.shelf.showNotification) {
       window.shelf.showNotification('Promoted to Favorites', `Moved ${data.moved} heroes`);
     }
-    showPromoteBridge(data.moved, folderName);
+    // showPromoteBridge expects a folder display label — derive it from source.
+    const displayName = initialSource.split(/[/\\]/).slice(-2).join('/');
+    showPromoteBridge(data.moved, displayName);
   } catch (e) {
     if (source !== initialSource) return;
     showToast('Promote failed: ' + e.message, 'error');

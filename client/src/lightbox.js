@@ -93,14 +93,54 @@ export function isLightboxOpen() {
   return isOpen;
 }
 
+// True when both indices belong to the same stack (and stackId is non-null).
+// Used to preserve zoom state across burst-frame navigation: zoom in once
+// on the subject, then arrow through the stack to compare focus/sharpness
+// at the same magnification.
+function isInSameStack(idxA, idxB) {
+  const images = getImages();
+  const a = images[idxA];
+  const b = images[idxB];
+  if (!a || !b) return false;
+  const sa = getStackIdFor(a.filename);
+  const sb = getStackIdFor(b.filename);
+  return sa !== null && sa === sb;
+}
+
 export function navigateLightbox(delta) {
   const images = getImages();
   const newIndex = currentIndex + delta;
   if (newIndex < 0 || newIndex >= images.length) return;
+
+  // Reset zoom unless we're staying inside the same stack — burst-frame
+  // comparison wants the same magnification + pan position across siblings.
+  if (!isInSameStack(currentIndex, newIndex)) {
+    isZoomed = false;
+    imgOffset = { x: 0, y: 0 };
+  }
+
   currentIndex = newIndex;
   setSelectedIndex(newIndex);
-  isZoomed = false;
-  renderLightbox();
+  updateLightboxFrame();
+}
+
+// Public toggle for the `z` keyboard shortcut. Mirrors what the dblclick
+// handler does. No-op when the lightbox is closed.
+export function toggleZoom() {
+  if (!isOpen) return;
+  const lbImg = document.getElementById('lb-img');
+  if (!lbImg) return;
+  if (isZoomed) {
+    isZoomed = false;
+    imgOffset = { x: 0, y: 0 };
+    lbImg.classList.remove('zoomed');
+    lbImg.style.transform = '';
+  } else {
+    isZoomed = true;
+    imgOffset = { x: 0, y: 0 };
+    lbImg.classList.add('zoomed');
+    lbImg.style.transform = '';
+  }
 }
 
 function cycleStatus(index) {
@@ -252,9 +292,15 @@ function attachShellListeners() {
       const thumb = e.target.closest('.filmstrip-thumb');
       if (thumb) {
         const i = parseInt(thumb.dataset.index);
+        // Same stack-aware zoom preservation as navigateLightbox: clicking
+        // a sibling thumb inside the current stack keeps zoom; clicking a
+        // thumb outside resets it.
+        if (!isInSameStack(currentIndex, i)) {
+          isZoomed = false;
+          imgOffset = { x: 0, y: 0 };
+        }
         currentIndex = i;
         setSelectedIndex(i);
-        isZoomed = false;
         updateLightboxFrame();
       }
     });
@@ -294,15 +340,24 @@ function updateLightboxFrame() {
     btn.classList.toggle('active', btn.dataset.status === status);
   });
 
-  // Image: reset previous fade/transform, set thumb src instantly, preload
-  // preview and crossfade in. The frameId guard discards stale onloads if
-  // the user has navigated past this image during the preview load.
+  // Image: set thumb src instantly, preload preview and crossfade in. The
+  // frameId guard discards stale onloads if the user has navigated past
+  // this image during the preview load. Zoom state (`isZoomed` + `imgOffset`)
+  // is the single source of truth — the caller decides whether to reset it
+  // before navigation; we just reflect that state here.
   const lbImg = document.getElementById('lb-img');
   if (lbImg) {
-    lbImg.classList.remove('zoomed');
-    lbImg.style.transform = '';
     lbImg.style.transition = '';
     lbImg.style.opacity = '1';
+    if (isZoomed) {
+      lbImg.classList.add('zoomed');
+      lbImg.style.transform = imgOffset.x || imgOffset.y
+        ? `translate(${imgOffset.x}px, ${imgOffset.y}px)`
+        : '';
+    } else {
+      lbImg.classList.remove('zoomed');
+      lbImg.style.transform = '';
+    }
     lbImg.src = thumbUrl(img.filename);
 
     const hiRes = new Image();

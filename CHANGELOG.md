@@ -3,6 +3,44 @@
 All notable changes to Shelf will be documented here.
 Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [1.3.0] — 2026-04-28
+
+Two features for real culling work: zoom that survives stack navigation, and a settable library root so new shoots land where you actually keep your photos.
+
+### Added
+
+- **Zoom persists across stack siblings.** Open a burst, double-click (or press `Z`) to zoom into the subject's eyes, then arrow through the burst — the zoom stays put so you can compare focus and sharpness frame-by-frame at the same magnification. Zoom resets when you cross a stack boundary or navigate to a non-stack image, since that's where the comparison frame of reference ends.
+- **`Z` keybinding for lightbox zoom.** Plain `Z` (no modifier) toggles zoom when the lightbox is open. `Cmd/Ctrl+Z` is still global undo.
+- **Settable library root.** `File → Set Library Root…` opens a folder picker and persists your choice. Every new shoot you sort goes into that root.
+- **`/api/promote-favorites` and `/api/folder-mark`** — path-based replacements for the legacy `/folder/:folder/*` routes. They work for both nested and flat layouts and require the source to be inside the configured library root (path-traversal containment). The legacy routes still exist for back-compat with anyone in mid-flight.
+
+### Changed
+
+- **Nested per-shoot layout for new sorts.** Sorting now creates `<libraryRoot>/<shoot name>/{unsorted, keeps, favorites, rejects}/` instead of the flat `<sortDir>/{Keeps, Favorites, Rejects, Unsorted} - MM-YYYY - <name>/` siblings. Shoots are now self-contained folders that read naturally in Finder and match the convention every external photo workflow already uses.
+- **Default library root is now `~/Pictures/Shelf/`** for fresh installs (was `~/Pictures/sorted/`). Reads naturally to a stranger; lives in the standard macOS Pictures dir.
+- **Existing configs migrate automatically.** On first launch of v1.3.0, your old `sortDir` value is moved to `libraryRoot` so nothing breaks. The migration is a one-time write; the new key sticks from then on.
+- **Filename collisions get a numeric suffix** (`IMG_1234-2.CR3`, `-3`, …) instead of overwriting silently.
+- **Sort modal explainer reads the actual library root** and points to the menu item for changing it. The "dated" wording is gone — folder names no longer carry a `MM-YYYY` prefix.
+
+### Fixed
+
+- **`handlePromoteFavorites` works under nested layout.** The old code extracted just the leaf basename of the source path and passed it to `/api/folder/:folder/*`, which silently 404'd for `<shoot>/keeps/` because the leaf was just `keeps`. The new path-based endpoints handle both layouts and detect nested-vs-flat by checking peer subfolders.
+- **Layout detection is conservative.** Standalone folders named "keeps" without peer status subfolders are no longer false-positive routed as nested shoots. Requires a sibling `favorites/`, `rejects/`, or `unsorted/` to trust the nested heuristic.
+- **`/api/folder-mark` and `/api/promote-favorites` reject sources outside the library root** with a 403, consistent with the legacy `/folder/:folder/*` containment check.
+- **Promote-favorites surfaces non-2xx responses** as toasted errors. Was: `fetch().then(r => r.json())` swallowed 4xx/5xx silently.
+
+### Under the hood
+
+- 10 new unit tests in `server/test/sorting.test.js` covering `uniqueDest` collision handling and layout detection edge cases. 67 total server tests.
+- `server/lib/state.js` migration writes through `atomicWrite` directly inside `getConfig()` — single round-trip, cache + disk consistent before any concurrent caller can race it.
+- Lint baseline still 0 warnings, 0 errors.
+
+### Known follow-ups (not blocking)
+
+- `setState` debounce in `server/lib/state.js` can lose marks under sub-100ms rapid sequential `/api/mark` calls. Real culling is keystroke-paced (>100ms between marks) so this isn't user-visible, but worth tightening.
+- Display label in `showPromoteBridge` for flat-layout sources reads slightly oddly ("photography/Keeps - 04-2026 - Name"); fine for nested. Cosmetic.
+- Legacy `/folder/:folder/*` endpoints can be deleted in a future version after a deprecation window.
+
 ## [1.2.3] — 2026-04-26
 
 Stack interaction polish + lightbox filmstrip rewrite. Hover the collapsed-stack badge to learn the hotkey. The cover acts like the stack on every action. The filmstrip stays put when you navigate.

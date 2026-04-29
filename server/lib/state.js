@@ -18,12 +18,30 @@ fs.mkdirSync(STATE_DIR, { recursive: true });
 
 let configCache = null;
 
+// Where new sorted shoots get written. Each shoot becomes a folder under
+// this root with `unsorted/keeps/favorites/rejects` subfolders. Settable
+// via `Set Library Root…` in the File menu (writes via /api/config).
+const DEFAULT_LIBRARY_ROOT = path.join(os.homedir(), 'Pictures', 'Shelf');
+
 export function getConfig() {
   if (configCache) return configCache;
 
   if (fs.existsSync(CONFIG_FILE)) {
     try {
-      configCache = JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf8'));
+      const loaded = JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf8'));
+      // Migrate legacy `sortDir` → `libraryRoot`. Pre-v1.3 wrote a flat
+      // layout under `~/Pictures/sorted/`; the value of the path is still
+      // valid (Shelf can read it via the `/folder/:folder/*` routes), so
+      // just adopt it as the new library root for now. The user can change
+      // it later via the menu.
+      if (loaded.sortDir && !loaded.libraryRoot) {
+        loaded.libraryRoot = loaded.sortDir;
+        delete loaded.sortDir;
+        configCache = loaded;
+        atomicWrite(CONFIG_FILE, JSON.stringify(configCache, null, 2));
+        return configCache;
+      }
+      configCache = loaded;
       return configCache;
     } catch {
       /* corrupted config, use defaults */
@@ -31,7 +49,7 @@ export function getConfig() {
   }
 
   configCache = {
-    sortDir: path.join(os.homedir(), 'Pictures/sorted'),
+    libraryRoot: DEFAULT_LIBRARY_ROOT,
     thumbSize: 280,
     theme: 'dark',
   };

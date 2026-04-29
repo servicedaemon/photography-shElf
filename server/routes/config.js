@@ -19,7 +19,7 @@ configRoutes.put('/config', (req, res) => {
 
   // Only allow known config keys
   const allowed = [
-    'sortDir',
+    'libraryRoot',
     'thumbSize',
     'defaultSource',
     'recentShoots',

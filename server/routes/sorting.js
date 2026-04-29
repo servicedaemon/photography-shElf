@@ -66,31 +66,49 @@ sortingRoutes.post('/mark-batch', (req, res) => {
   res.json({ ok: true });
 });
 
-// Sort to folders — move files off camera card
+// Sort to folders — move files off camera card.
+//
+// Layout (v1.3+): nested per-shoot under the configured library root.
+//   <libraryRoot>/<shootName>/{unsorted,keeps,favorites,rejects}/
+//
+// If a shoot folder with the same name already exists, files merge into
+// the existing piles. Filename collisions get a `-2`, `-3`, … suffix
+// before the extension so nothing overwrites silently.
 sortingRoutes.post('/sort', async (req, res) => {
   const { name, source } = req.body;
   if (!name || !source) {
     return res.status(400).json({ error: 'Name and source required' });
   }
 
-  // Sanitize folder name
-  const safeName = name.replace(/[^a-zA-Z0-9 _-]/g, '').trim();
+  // Sanitize folder name: allow alphanumerics, space, underscore, dash.
+  // Collapse runs of whitespace/dashes that creep in from copy-paste.
+  const safeName = name
+    .replace(/[^a-zA-Z0-9 _-]/g, '')
+    .replace(/\s{2,}/g, ' ')
+    .replace(/-{2,}/g, '-')
+    .trim();
   if (!safeName) return res.status(400).json({ error: 'Invalid name' });
 
   const config = getConfig();
-  const sortDir = config.sortDir || path.join(os.homedir(), 'Pictures', 'sorted');
+  const libraryRoot =
+    config.libraryRoot || path.join(os.homedir(), 'Pictures', 'Shelf');
 
-  const now = new Date();
-  const dateStr = String(now.getMonth() + 1).padStart(2, '0') + '-' + now.getFullYear();
-  const keepDir = path.join(sortDir, `Keeps - ${dateStr} - ${safeName}`);
-  const favDir = path.join(sortDir, `Favorites - ${dateStr} - ${safeName}`);
-  const rejectDir = path.join(sortDir, `Rejects - ${dateStr} - ${safeName}`);
-  const unsortedDir = path.join(sortDir, `Unsorted - ${dateStr} - ${safeName}`);
+  const shootDir = path.join(libraryRoot, safeName);
+  const unsortedDir = path.join(shootDir, 'unsorted');
+  const keepsDir = path.join(shootDir, 'keeps');
+  const favoritesDir = path.join(shootDir, 'favorites');
+  const rejectsDir = path.join(shootDir, 'rejects');
 
-  fs.mkdirSync(keepDir, { recursive: true });
-  fs.mkdirSync(favDir, { recursive: true });
-  fs.mkdirSync(rejectDir, { recursive: true });
-  fs.mkdirSync(unsortedDir, { recursive: true });
+  try {
+    fs.mkdirSync(unsortedDir, { recursive: true });
+    fs.mkdirSync(keepsDir, { recursive: true });
+    fs.mkdirSync(favoritesDir, { recursive: true });
+    fs.mkdirSync(rejectsDir, { recursive: true });
+  } catch (e) {
+    return res
+      .status(500)
+      .json({ error: `Cannot create shoot folders under ${libraryRoot}: ${e.message}` });
+  }
 
   const state = getState(source);
   const sourcePath = path.resolve(source);
@@ -114,12 +132,12 @@ sortingRoutes.post('/sort', async (req, res) => {
 
     const status = state[filename] || 'unmarked';
     let destDir;
-    if (status === 'favorite') destDir = favDir;
-    else if (status === 'keep') destDir = keepDir;
-    else if (status === 'reject') destDir = rejectDir;
+    if (status === 'favorite') destDir = favoritesDir;
+    else if (status === 'keep') destDir = keepsDir;
+    else if (status === 'reject') destDir = rejectsDir;
     else destDir = unsortedDir;
 
-    const dest = path.join(destDir, filename);
+    const dest = uniqueDest(destDir, filename);
     try {
       // Copy-then-delete for cross-volume safety
       fs.copyFileSync(src, dest);
@@ -132,8 +150,32 @@ sortingRoutes.post('/sort', async (req, res) => {
 
   // Clear state for this source
   setState(source, {});
-  res.json({ moved, errors: errors.length > 0 ? errors : undefined });
+  res.json({
+    moved,
+    shootDir,
+    unsortedDir,
+    keepsDir,
+    favoritesDir,
+    rejectsDir,
+    errors: errors.length > 0 ? errors : undefined,
+  });
 });
+
+// Pure helper: pick a destination path that doesn't already exist by
+// appending `-2`, `-3`, … before the extension. Exposed for tests.
+export function uniqueDest(dir, filename) {
+  const candidate = path.join(dir, filename);
+  if (!fs.existsSync(candidate)) return candidate;
+
+  const ext = path.extname(filename);
+  const stem = path.basename(filename, ext);
+  for (let n = 2; n < 10000; n++) {
+    const next = path.join(dir, `${stem}-${n}${ext}`);
+    if (!fs.existsSync(next)) return next;
+  }
+  // Fall through if 10000 collisions exist — astonishing, just overwrite.
+  return candidate;
+}
 
 // Undo last action
 sortingRoutes.post('/undo', (req, res) => {
@@ -162,7 +204,7 @@ sortingRoutes.post('/undo', (req, res) => {
 // Mark favorite in a review folder
 sortingRoutes.post('/folder/:folder/mark', (req, res) => {
   const config = getConfig();
-  const sortDir = config.sortDir || path.join(os.homedir(), 'Pictures', 'sorted');
+  const sortDir = config.libraryRoot || path.join(os.homedir(), 'Pictures', 'Shelf');
   const folderPath = path.join(sortDir, req.params.folder);
 
   if (!folderPath.startsWith(sortDir) || !fs.existsSync(folderPath)) {
@@ -198,10 +240,153 @@ sortingRoutes.post('/folder/:folder/mark', (req, res) => {
   res.json({ ok: true });
 });
 
+// Promote favorites: takes a full source path (works for both flat and
+// nested layouts). Reads .favorites-state.json from `source`, moves every
+// file marked 'favorite' into the appropriate target:
+//   - Nested layout: `source` is `<shoot>/keeps/` → target is `<shoot>/favorites/`
+//   - Flat layout (or fallback): target is `<source>/Favorites/` (sub-sub)
+//
+// The source-validation rule is: source must be a real directory. We
+// don't restrict it to libraryRoot because legacy flat-layout shoots
+// may have been moved out of it.
+sortingRoutes.post('/promote-favorites', (req, res) => {
+  const { source } = req.body || {};
+  if (!source) return res.status(400).json({ error: 'source required' });
+
+  const sourcePath = path.resolve(source);
+  if (!fs.existsSync(sourcePath) || !fs.statSync(sourcePath).isDirectory()) {
+    return res.status(404).json({ error: 'source is not a directory' });
+  }
+
+  const cfg = getConfig();
+  const libraryRoot = path.resolve(
+    cfg.libraryRoot || path.join(os.homedir(), 'Pictures', 'Shelf'),
+  );
+  if (!sourcePath.startsWith(libraryRoot)) {
+    return res
+      .status(403)
+      .json({ error: 'source must be inside the configured library root' });
+  }
+
+  // Layout detection: nested only when `source` is `<shoot>/keeps/` AND
+  // the parent looks like a real shoot folder (has at least one of the
+  // peer status subfolders we'd expect). Avoids false-positive nesting
+  // when someone happens to drop photos into a folder named "keeps".
+  const parent = path.dirname(sourcePath);
+  const leaf = path.basename(sourcePath).toLowerCase();
+  const looksNested =
+    leaf === 'keeps' &&
+    fs.existsSync(parent) &&
+    (fs.existsSync(path.join(parent, 'favorites')) ||
+      fs.existsSync(path.join(parent, 'rejects')) ||
+      fs.existsSync(path.join(parent, 'unsorted')));
+
+  let favDir;
+  if (looksNested) {
+    // Peer favorites folder under the shoot
+    favDir = path.join(parent, 'favorites');
+  } else {
+    // Flat (legacy): Favorites/ subfolder inside the source
+    favDir = path.join(sourcePath, 'Favorites');
+  }
+  fs.mkdirSync(favDir, { recursive: true });
+
+  const stateFile = path.join(sourcePath, '.favorites-state.json');
+  let favState = {};
+  if (fs.existsSync(stateFile)) {
+    try {
+      favState = JSON.parse(fs.readFileSync(stateFile, 'utf8'));
+    } catch {
+      /* corrupt — treat as empty */
+    }
+  }
+
+  let moved = 0;
+  const errors = [];
+
+  for (const [filename, status] of Object.entries(favState)) {
+    if (status !== 'favorite') continue;
+    if (!validateFilename(filename)) continue;
+    const src = path.join(sourcePath, filename);
+    const dest = uniqueDest(favDir, filename);
+    try {
+      if (fs.existsSync(src)) {
+        fs.copyFileSync(src, dest);
+        fs.unlinkSync(src);
+        moved++;
+      }
+    } catch (e) {
+      errors.push({ filename, error: e.message });
+    }
+  }
+
+  // Clear favorites state
+  try {
+    const tmpFile = stateFile + '.tmp';
+    fs.writeFileSync(tmpFile, '{}');
+    fs.renameSync(tmpFile, stateFile);
+  } catch {
+    /* state file might not exist if no favorites were marked — fine */
+  }
+
+  res.json({ moved, favDir, errors: errors.length > 0 ? errors : undefined });
+});
+
+// In-folder favorite-status mark: works for any source path (nested or flat).
+// Body: { source, filename, status }. State persists in .favorites-state.json
+// next to the photos. Source must be inside the configured libraryRoot
+// to keep path-traversal contained — the legacy `/folder/:folder/mark`
+// route enforces the same containment via `startsWith(sortDir)`.
+sortingRoutes.post('/folder-mark', (req, res) => {
+  const { source, filename, status } = req.body || {};
+  if (!source) return res.status(400).json({ error: 'source required' });
+
+  const sourcePath = path.resolve(source);
+  if (!fs.existsSync(sourcePath) || !fs.statSync(sourcePath).isDirectory()) {
+    return res.status(404).json({ error: 'source is not a directory' });
+  }
+
+  const cfg = getConfig();
+  const libraryRoot = path.resolve(
+    cfg.libraryRoot || path.join(os.homedir(), 'Pictures', 'Shelf'),
+  );
+  if (!sourcePath.startsWith(libraryRoot)) {
+    return res
+      .status(403)
+      .json({ error: 'source must be inside the configured library root' });
+  }
+
+  if (!filename || !validateFilename(filename)) {
+    return res.status(400).json({ error: 'Invalid filename' });
+  }
+
+  const stateFile = path.join(sourcePath, '.favorites-state.json');
+  let favState = {};
+  if (fs.existsSync(stateFile)) {
+    try {
+      favState = JSON.parse(fs.readFileSync(stateFile, 'utf8'));
+    } catch {
+      /* corrupt — start fresh */
+    }
+  }
+
+  if (status === 'unmarked') {
+    delete favState[filename];
+  } else {
+    favState[filename] = status;
+  }
+
+  const tmpFile = stateFile + '.tmp';
+  fs.writeFileSync(tmpFile, JSON.stringify(favState, null, 2));
+  fs.renameSync(tmpFile, stateFile);
+
+  res.json({ ok: true });
+});
+
 // Save favorites to subfolder
 sortingRoutes.post('/folder/:folder/save-favorites', (req, res) => {
   const config = getConfig();
-  const sortDir = config.sortDir || path.join(os.homedir(), 'Pictures', 'sorted');
+  const sortDir = config.libraryRoot || path.join(os.homedir(), 'Pictures', 'Shelf');
   const folderPath = path.join(sortDir, req.params.folder);
 
   if (!folderPath.startsWith(sortDir) || !fs.existsSync(folderPath)) {
