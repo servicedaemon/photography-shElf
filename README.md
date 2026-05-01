@@ -30,6 +30,25 @@
   <img src="docs/images/screenshots/favorites.png"    alt="Favorites stage with Convert to DNG and Edit in Lightroom buttons"       width="380"/>
 </p>
 
+<div align="center">
+<pre>
+              /\    /\
+             /  \  /  \
+            /____\/____\
+            |  •    •  |
+       ✦    |   \__/   |             ·
+            \__________/
+           ┌──────────────┐
+           │              │
+           │   ┌──────┐ ● │
+           │   │  ◉   │   │
+           │   └──────┘   │
+           │              │
+           └──────────────┘
+</pre>
+<sub><i>the elf, in monospace</i></sub>
+</div>
+
 ---
 
 ## What Shelf is
