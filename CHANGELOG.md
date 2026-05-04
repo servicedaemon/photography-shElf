@@ -3,6 +3,29 @@
 All notable changes to Shelf will be documented here.
 Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [1.3.3] — 2026-05-04
+
+Real-shoot bug fixes from a 250-photo session that crashed Shelf at ~80%. Memory leak fix is the headline; everything else is the cluster of stack-related weirdness Ava ran into while culling.
+
+### Fixed
+
+- **Renderer crash during long lightbox sessions.** Each arrow-key press in the lightbox preloaded a hi-res preview via `new Image()` and never aborted the previous in-flight load. Rapid navigation through ~200 photos piled up that many concurrent in-flight Image objects, each holding a multi-MB CR3 preview, until the renderer ran out of memory and force-closed. Now: a `cancelPendingHiRes()` helper nulls the prior load's `onload`/`onerror` and clears its `src` before starting a new one. Stress-tested through 50 rapid navigations: heap stays flat (20.3 MB → 19.9 MB), final image always matches final state.
+- **Lightbox didn't update when K/F/X marked through it.** `keepAndAdvance` and friends moved the GRID's `selectedIndex` but the lightbox's separate `currentIndex` stayed stuck on the prior frame, so marking felt like nothing was happening. `setSelectedIndex` now emits `SELECTION_CHANGED` with the new index; the lightbox listens and syncs `currentIndex` + re-renders. Verified live: marking IMG_1442 (collapsed-stack cover, 5 frames) now correctly advances the lightbox past the stack to IMG_1449.
+- **`K` jumped to the bottom of expanded stacks.** `advanceToNextUnmarked` walked raw `images[]` indices without checking `isImageVisible()`, so it could land on a hidden member of a different collapsed stack. Now: skips hidden frames. Same fix for `advancePastStack`.
+- **No visual indicator that a stack was collapsed in the lightbox.** The badge showed "(collapsed)" only in its hover-tooltip — invisible without mouseover. Now the badge text itself flips: `◈ N ▾` when collapsed, `◈ N ▴` when expanded. The collapsed badge gets a distinct `.lb-stack-badge-collapsed` class so future styling can diverge.
+- **`?` shortcuts panel was bigger than viewport.** With the stack/zoom/sort sections added, the panel grew past short laptop screens with no scroll fallback. Added `max-height: calc(100vh - 48px)` + `overflow-y: auto` so it always fits.
+- **Click-then-space opened the lightbox at the wrong card.** `toggleLightbox` used the lightbox's stale `currentIndex` instead of the grid's `selectedIndex`. Now uses the grid selection.
+
+### Changed
+
+- **IntersectionObserver `rootMargin` bumped 200px → 1500px** so thumbnails for cards near the viewport (including newly-revealed members of just-expanded stacks) load preemptively. Reduces the "wave of loads" Ava saw on first stack expand.
+
+### Under the hood
+
+- 76 server tests still pass, lint baseline clean.
+- Sonnet-paired through diagnosis (crash root-cause was its top hypothesis given the repro of "spacebar mode, ~80% deep, 250-photo shoot") and triage of the 12-item feedback dump.
+- Sort progress indicator (#6) deferred to v1.3.4 — needs server-side SSE/streaming, separate scope.
+
 ## [1.3.2] — 2026-05-04
 
 Forgiving subfolder matching everywhere. Shoots in the wild that have non-canonical folder names — `Favorites ` (trailing space), `Keep` (singular), `Favs` (abbreviated) — now register correctly across every code path.

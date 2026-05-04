@@ -15,6 +15,7 @@ import {
   getStackSpanForIndex,
   getStackIdFor,
   isStackCollapsed,
+  isImageVisible,
 } from './grid.js';
 import { enqueueMark } from './mark-queue.js';
 
@@ -93,18 +94,27 @@ export async function batchMark(start, end, status) {
   bus.emit(EVENTS.BATCH_MARKED, { start, end, status });
 }
 
+// Skip hidden frames (members of collapsed stacks). Without isImageVisible,
+// `K` on an expanded-stack frame would land on the next sibling — but if
+// some intervening stack is collapsed, raw index walking skips its cover
+// and lands somewhere weird ("takes me to the bottom of the stack" — bug 4).
 function advanceToNextUnmarked() {
   const images = getImages();
   const index = getSelectedIndex();
   for (let i = index + 1; i < images.length; i++) {
+    if (!isImageVisible(images[i].filename)) continue;
     const s = images[i].status || 'unmarked';
     if (s === 'unmarked') {
       setSelectedIndex(i);
       return;
     }
   }
-  if (index + 1 < images.length) {
-    setSelectedIndex(index + 1);
+  // Fall through: any visible next, even if marked.
+  for (let i = index + 1; i < images.length; i++) {
+    if (isImageVisible(images[i].filename)) {
+      setSelectedIndex(i);
+      return;
+    }
   }
 }
 
@@ -113,14 +123,18 @@ function advanceToNextUnmarked() {
 function advancePastStack(stackEndIndex) {
   const images = getImages();
   for (let i = stackEndIndex + 1; i < images.length; i++) {
+    if (!isImageVisible(images[i].filename)) continue;
     const s = images[i].status || 'unmarked';
     if (s === 'unmarked') {
       setSelectedIndex(i);
       return;
     }
   }
-  if (stackEndIndex + 1 < images.length) {
-    setSelectedIndex(stackEndIndex + 1);
+  for (let i = stackEndIndex + 1; i < images.length; i++) {
+    if (isImageVisible(images[i].filename)) {
+      setSelectedIndex(i);
+      return;
+    }
   }
 }
 

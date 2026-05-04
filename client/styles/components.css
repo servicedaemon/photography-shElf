@@ -726,6 +726,12 @@
   padding: 36px 40px;
   max-width: 560px;
   width: 100%;
+  /* Cap to viewport with scroll fallback so the panel never bleeds off
+     screen on shorter displays. The shortcut list grew past laptop-screen
+     height with the addition of stack/zoom/sort sections — without these
+     bounds the bottom of the panel was unreachable. */
+  max-height: calc(100vh - 48px);
+  overflow-y: auto;
   box-shadow:
     0 30px 80px rgba(0, 0, 0, 0.7),
     0 0 0 1px rgba(224, 168, 46, 0.03);

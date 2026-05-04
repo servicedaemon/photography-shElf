@@ -26,7 +26,11 @@ let coverByStackId = new Map(); // stackId → filename
 export function initGrid() {
   gridEl = document.getElementById('grid');
 
-  bus.on(EVENTS.SELECTION_CHANGED, ({ range }) => {
+  bus.on(EVENTS.SELECTION_CHANGED, (detail) => {
+    // `range` is only present when shift-click range selection changes;
+    // pure focus-index emits from setSelectedIndex don't carry it.
+    if (!('range' in detail)) return;
+    const { range } = detail;
     currentSelectionRange = range;
     const cards = gridEl?.querySelectorAll('.card') || [];
     cards.forEach((card, i) => {
@@ -247,20 +251,26 @@ export function getSelectedIndex() {
 }
 
 export function setSelectedIndex(i) {
+  if (selectedIndex === i) return; // no-op when already selected
   // Deselect old
   if (selectedIndex >= 0) {
-    const oldCard = gridEl.querySelector(`.card[data-index="${selectedIndex}"]`);
+    const oldCard = gridEl?.querySelector(`.card[data-index="${selectedIndex}"]`);
     if (oldCard) oldCard.classList.remove('selected');
   }
   selectedIndex = i;
   // Select new
   if (selectedIndex >= 0) {
-    const newCard = gridEl.querySelector(`.card[data-index="${selectedIndex}"]`);
+    const newCard = gridEl?.querySelector(`.card[data-index="${selectedIndex}"]`);
     if (newCard) {
       newCard.classList.add('selected');
       newCard.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
     }
   }
+  // Tell the lightbox (and any other listener) that focus moved. Without
+  // this, K/F/X in the lightbox would mark + advance the GRID selection
+  // but leave the lightbox stuck on the old image — the desync that made
+  // the in-lightbox cull feel like nothing was happening.
+  bus.emit(EVENTS.SELECTION_CHANGED, { selectedIndex });
 }
 
 export function updateCardStatus(index, status) {
@@ -369,7 +379,14 @@ function renderGrid() {
         }
       }
     },
-    { rootMargin: '200px' },
+    // Wide root margin so thumbnails for cards just outside the viewport
+    // start loading early. Specifically prevents the "wave of loads"
+    // visible on first stack expand: the hidden cards weren't being
+    // observed (display: none → never intersected), so expanding them
+    // queued a fresh batch of fetches. With this margin, scrolling near
+    // a stack pre-loads its members preemptively. Stack expand also
+    // re-observes the newly-visible cards in toggleStackAtCurrent.
+    { rootMargin: '1500px' },
   );
 
   const fragment = document.createDocumentFragment();

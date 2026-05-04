@@ -4,6 +4,7 @@ import { bus, EVENTS } from './events.js';
 import {
   getImages,
   setSelectedIndex,
+  getSelectedIndex,
   previewUrl,
   getStackIdFor,
   getStackMembers,
@@ -24,6 +25,13 @@ let imgOffset = { x: 0, y: 0 };
 // stale onloads firing after the user has navigated past the requested image.
 let frameId = 0;
 
+// The currently-pending hi-res preload. We keep a reference so we can null
+// out its onload + src when the user navigates past it — otherwise an
+// in-flight Image holds its decoded preview (~2-4MB for CR3) until the
+// network response completes, which led to OOM crashes after ~200+ rapid
+// navigations through a large shoot.
+let pendingHiRes = null;
+
 const CYCLE = ['unmarked', 'keep', 'favorite'];
 const STATUS_CLASSES = ['keep', 'favorite', 'reject'];
 
@@ -36,6 +44,26 @@ export function initLightbox() {
   // Re-render lightbox when marks change (from keyboard shortcuts)
   bus.on(EVENTS.IMAGE_MARKED, ({ index }) => {
     if (isOpen && index === currentIndex) updateLightboxFrame();
+  });
+
+  // Sync lightbox.currentIndex with grid.selectedIndex. Without this, K/F/X
+  // in the lightbox would advance the grid selection but leave the lightbox
+  // stuck on the old image — the user would see no change and think marking
+  // was broken (item 8 in the v1.3.2 feedback dump).
+  bus.on(EVENTS.SELECTION_CHANGED, (detail) => {
+    if (!isOpen) return;
+    if (typeof detail.selectedIndex !== 'number') return;
+    if (detail.selectedIndex === currentIndex) return; // already in sync
+    const images = getImages();
+    if (detail.selectedIndex < 0 || detail.selectedIndex >= images.length) return;
+    // Reset zoom unless we're staying inside the same stack — same rule as
+    // arrow-key nav (preserves zoom across burst siblings).
+    if (!isInSameStack(currentIndex, detail.selectedIndex)) {
+      isZoomed = false;
+      imgOffset = { x: 0, y: 0 };
+    }
+    currentIndex = detail.selectedIndex;
+    updateLightboxFrame();
   });
 
   // Stack feedback: when S / Shift+S / P fire while the lightbox is open,
@@ -62,6 +90,7 @@ export function initLightbox() {
     isOpen = false;
     isZoomed = false;
     isDragging = false;
+    cancelPendingHiRes();
     if (lightboxEl) {
       lightboxEl.classList.remove('active', 'closing');
       lightboxEl.replaceChildren();
@@ -93,6 +122,7 @@ function closeLightbox() {
   if (!lightboxEl.classList.contains('active')) return;
   isOpen = false;
   isZoomed = false;
+  cancelPendingHiRes();
   // Play exit animation before removing 'active' (which display:none-s it).
   lightboxEl.classList.add('closing');
   const onEnd = () => {
@@ -107,9 +137,13 @@ export function toggleLightbox() {
     closeLightbox();
   } else {
     const images = getImages();
-    // Use current grid selection
-    const idx = Math.max(0, currentIndex);
-    if (images.length > 0) openLightbox(idx >= images.length ? 0 : idx);
+    if (images.length === 0) return;
+    // Open at the GRID's selected index — not the lightbox's last
+    // currentIndex, which can be stale after MODE_CHANGED or just out of
+    // sync if the user clicked a card before pressing space.
+    const gridIdx = getSelectedIndex();
+    const safeIdx = gridIdx >= 0 && gridIdx < images.length ? gridIdx : 0;
+    openLightbox(safeIdx);
   }
 }
 
@@ -363,11 +397,21 @@ function updateLightboxFrame() {
     }
     if (currentStackId !== null) {
       const members = getStackMembers(currentStackId);
+      const collapsed = isStackCollapsed(currentStackId);
       const stackBadge = document.createElement('div');
-      stackBadge.className = 'lb-stack-badge';
-      const collapsedNote = isStackCollapsed(currentStackId) ? ' (collapsed)' : '';
-      stackBadge.textContent = `◈ ${members.length}`;
-      stackBadge.title = `Burst of ${members.length}${collapsedNote} — S to toggle, P to set cover`;
+      stackBadge.className = collapsed
+        ? 'lb-stack-badge lb-stack-badge-collapsed'
+        : 'lb-stack-badge';
+      // Make the collapse state visible (not just hover-tooltip) so users
+      // know whether plain K will mark the whole stack (collapsed) or just
+      // the current frame (expanded). Lock icon when collapsed, open glyph
+      // otherwise — both show the size.
+      stackBadge.textContent = collapsed
+        ? `◈ ${members.length} ▾`
+        : `◈ ${members.length} ▴`;
+      stackBadge.title = collapsed
+        ? `Burst of ${members.length} (collapsed) — S to expand, P to set cover. Plain K/F/X marks the whole stack.`
+        : `Burst of ${members.length} (expanded) — S to collapse, P to set cover. Plain K/F/X marks just this frame.`;
       slot.appendChild(stackBadge);
     }
   }
@@ -412,9 +456,19 @@ function updateLightboxFrame() {
     }
     lbImg.src = thumbUrl(img.filename);
 
+    // Cancel the previous in-flight hi-res preload before starting a new one.
+    // Without this, rapid navigation through ~200 photos pile up as many
+    // concurrent in-flight Images, each holding a multi-MB CR3 preview, which
+    // crashed the renderer at ~80% through a 250-photo cull.
+    cancelPendingHiRes();
     const hiRes = new Image();
+    pendingHiRes = hiRes;
     hiRes.onload = () => {
-      if (!isOpen || frameId !== myFrameId) return;
+      if (!isOpen || frameId !== myFrameId) {
+        // Stale — release the reference so it can be GC'd.
+        if (pendingHiRes === hiRes) pendingHiRes = null;
+        return;
+      }
       lbImg.style.transition = 'opacity 0.22s ease';
       lbImg.style.opacity = '0';
       setTimeout(() => {
@@ -457,6 +511,17 @@ function updateLightboxFrame() {
   const activeThumb = lightboxEl.querySelector('.filmstrip-thumb.active');
   if (activeThumb) {
     activeThumb.scrollIntoView({ inline: 'center', behavior: 'smooth' });
+  }
+}
+
+// Cancel any in-flight hi-res preload and free its decoded-image memory.
+// Called from close, mode change, and updateLightboxFrame's start-of-loop.
+function cancelPendingHiRes() {
+  if (pendingHiRes) {
+    pendingHiRes.onload = null;
+    pendingHiRes.onerror = null;
+    pendingHiRes.src = '';
+    pendingHiRes = null;
   }
 }
 
