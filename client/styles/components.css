@@ -746,7 +746,7 @@
   margin-top: 4px;
 }
 
-/* Workflow orientation: CULL → HEROES → FINAL with one-line descriptions.
+/* Workflow orientation: CULL → PICKS → FINAL with one-line descriptions.
    Lives between the action buttons and the recent-shoots list on the welcome
    screen so first-time users have a map of "what does this app do" before
    they touch anything.

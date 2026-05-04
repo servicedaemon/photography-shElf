@@ -112,7 +112,7 @@ function updateActions() {
     if (stage === 'CULL' && total > 0) {
       buttons.push(`<button class="btn btn-primary" id="action-sort">Sort to Folders</button>`);
     }
-    if (stage === 'HEROES' && favs > 0) {
+    if (stage === 'PICKS' && favs > 0) {
       buttons.push(
         `<button class="btn btn-primary" id="action-promote">Promote ${favs} to Favorites</button>`,
       );
@@ -125,7 +125,7 @@ function updateActions() {
         `<button class="btn btn-muted" id="action-open-editor">Edit in Lightroom</button>`,
       );
     }
-    if (stage === 'HEROES' && hasFavoritesFolder) {
+    if (stage === 'PICKS' && hasFavoritesFolder) {
       buttons.push(
         `<button class="btn btn-muted" id="action-open-editor">Edit Favorites in Lightroom</button>`,
       );

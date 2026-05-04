@@ -3,6 +3,26 @@
 All notable changes to Shelf will be documented here.
 Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [1.4.0] — 2026-05-04
+
+UX cleanup. Two small wins from the v1.3.x feedback dump.
+
+### Changed
+
+- **Welcome screen no longer shows duplicate buttons.** The "Scan Card" and "New Shoot" buttons that lived in the center of the welcome screen are gone — they were duplicates of the buttons in the top bar. Welcome copy updated to point users to the top bar + drop-folder affordance.
+- **Workflow stage `HEROES` renamed to `PICKS`.** "Heroes" was confusing jargon. "Picks" reads as plain English: you finished the cull, now you're picking your favorites. The CULL → PICKS → FINAL workflow chip row reflects this. Internal stage value (`detectStage` return), CSS classes, action-bar conditions, and unit tests all updated together. No persisted state to migrate — stage is recomputed fresh on every shoot load.
+
+### Under the hood
+
+- 76 server tests pass. Lint clean.
+- Sonnet code-review caught two follow-ups: the e2e test in `test/e2e/stages.spec.js` was still asserting `HEROES` (now `PICKS`); `docs/WINDOWS-QA.md` referenced HEROES in its tester instructions (now `PICKS`). Both fixed.
+- One pre-existing issue surfaced during QA: `.stage-pill` CSS class is defined but no JS applies it. Filed as a separate task — either render the pill in the header per the original UX intent, or delete the dead CSS + e2e tests.
+
+### Coming next
+
+- v1.4.1+ — top-bar restructure (#7), mark-behavior clarification (#11)
+- v1.5.0 — jagged grid, full eager loading
+
 ## [1.3.5] — 2026-05-04
 
 The multi-camera workflow. Two photographers, two cards, one shoot — sort each card and merge into the same destination, with mark routing preserved (keeps go to keeps, favorites to favorites, etc.).

@@ -41,7 +41,7 @@
   background: linear-gradient(180deg, rgba(140, 160, 184, 0.08), rgba(140, 160, 184, 0.02));
 }
 
-.stage-pill.stage-heroes {
+.stage-pill.stage-picks {
   color: var(--amber);
   border-color: rgba(224, 168, 46, 0.45);
   background: linear-gradient(180deg, rgba(224, 168, 46, 0.12), rgba(224, 168, 46, 0.03));

@@ -56,7 +56,7 @@ function detectStageFromPath(basename) {
   const role = normalizeSubfolderRole(basename);
   if (role === 'favorites' || role === 'edited') return 'FINAL';
   if (FAV_DATED_RE.test(basename)) return 'FINAL';
-  if (KEEPS_DATED_RE.test(basename)) return 'HEROES';
+  if (KEEPS_DATED_RE.test(basename)) return 'PICKS';
   return null;
 }
 
@@ -69,7 +69,7 @@ function detectStageFromPath(basename) {
 //
 // Rules (inline shoot layout):
 //   Favorites/ or edited/ has files          → FINAL
-//   keeps/ has files (and no FINAL content)  → HEROES
+//   keeps/ has files (and no FINAL content)  → PICKS
 //   otherwise                                → CULL
 //
 // Returns null if sourcePath isn't recognizably inside a shoot.
@@ -104,8 +104,8 @@ function detectStageFromShoot(sourcePath) {
   // FINAL if any curated pile has content
   if (subs.favorites && folderHasImages(subs.favorites)) return 'FINAL';
   if (subs.edited && folderHasImages(subs.edited)) return 'FINAL';
-  // HEROES if keeps has been populated
-  if (subs.keeps && folderHasImages(subs.keeps)) return 'HEROES';
+  // PICKS if keeps has been populated
+  if (subs.keeps && folderHasImages(subs.keeps)) return 'PICKS';
   // Otherwise still culling
   return 'CULL';
 }

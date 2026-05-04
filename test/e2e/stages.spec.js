@@ -9,10 +9,10 @@ test('CULL stage detected for unsorted folder', async () => {
   await app.close();
 });
 
-test('HEROES stage detected for Keeps folder', async () => {
+test('PICKS stage detected for Keeps folder', async () => {
   const { app, window } = await launchApp();
   await loadFolder(window, path.join(FIXTURES, 'Keeps - 04-2026 - Test'));
-  await expect(window.locator('.stage-pill')).toHaveText(/HEROES/);
+  await expect(window.locator('.stage-pill')).toHaveText(/PICKS/);
   await app.close();
 });
 

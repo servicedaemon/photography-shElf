@@ -1,4 +1,4 @@
-// Client-side stage tracking (CULL / HEROES / FINAL)
+// Client-side stage tracking (CULL / PICKS / FINAL)
 
 import { bus, EVENTS } from './events.js';
 

@@ -65,12 +65,12 @@ test('detectStage: flat Favorites - MM-YYYY - X → FINAL', () => {
   assert.equal(detectStage('/Users/ava/Pictures/sorted/Favorites - 04-2026 - Shoot'), 'FINAL');
 });
 
-test('detectStage: flat Keeps - MM-YYYY - X → HEROES', () => {
-  assert.equal(detectStage('/Users/ava/Pictures/sorted/Keeps - 04-2026 - Kat x Tsuki'), 'HEROES');
+test('detectStage: flat Keeps - MM-YYYY - X → PICKS', () => {
+  assert.equal(detectStage('/Users/ava/Pictures/sorted/Keeps - 04-2026 - Kat x Tsuki'), 'PICKS');
 });
 
 test('detectStage: Windows trailing backslash does not break detection', () => {
-  assert.equal(detectStage('C:\\Users\\ava\\Keeps - 04-2026 - X\\'), 'HEROES');
+  assert.equal(detectStage('C:\\Users\\ava\\Keeps - 04-2026 - X\\'), 'PICKS');
 });
 
 test('detectStage: empty path → CULL', () => {
@@ -112,13 +112,13 @@ test('inline shoot: only unsorted populated → CULL (from shoot root)', () => {
   }
 });
 
-test('inline shoot: keeps populated → HEROES (stage stays HEROES across sub-folders)', () => {
+test('inline shoot: keeps populated → PICKS (stage stays PICKS across sub-folders)', () => {
   const { shoot, cleanup } = makeShoot('keeps-pop', { unsorted: 2, keeps: 5 });
   try {
-    assert.equal(detectStage(shoot), 'HEROES');
-    assert.equal(detectStage(path.join(shoot, 'unsorted')), 'HEROES');
-    assert.equal(detectStage(path.join(shoot, 'keeps')), 'HEROES');
-    assert.equal(detectStage(path.join(shoot, 'rejects')), 'HEROES');
+    assert.equal(detectStage(shoot), 'PICKS');
+    assert.equal(detectStage(path.join(shoot, 'unsorted')), 'PICKS');
+    assert.equal(detectStage(path.join(shoot, 'keeps')), 'PICKS');
+    assert.equal(detectStage(path.join(shoot, 'rejects')), 'PICKS');
   } finally {
     cleanup();
   }
@@ -192,8 +192,8 @@ test('inline shoot: singular variants ("keep", "favorite") still recognize as a 
   fs.mkdirSync(path.join(shoot, 'reject'));
   fs.writeFileSync(path.join(shoot, 'keep', 'IMG_0001.dng'), '');
   try {
-    // keeps populated, no favorites/edited → HEROES
-    assert.equal(detectStage(shoot), 'HEROES');
+    // keeps populated, no favorites/edited → PICKS
+    assert.equal(detectStage(shoot), 'PICKS');
   } finally {
     fs.rmSync(root, { recursive: true });
   }

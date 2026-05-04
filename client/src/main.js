@@ -253,11 +253,7 @@ function showEmptyState() {
   empty.innerHTML = `
     <div id="empty-elf"></div>
     <h2>Welcome to Shelf</h2>
-    <p>Scan a camera card, pick a folder, or drop one in.</p>
-    <div class="empty-actions">
-      <button class="btn btn-primary" id="empty-scan-camera">Scan Card</button>
-      <button class="btn btn-gold" id="empty-select-dir">New Shoot</button>
-    </div>
+    <p>Use the buttons up top to scan a camera card or open a folder. You can also drop a folder right onto the window.</p>
     <div class="welcome-flow" aria-label="Workflow overview">
       <div class="welcome-flow-step">
         <span class="welcome-flow-key">CULL</span>
@@ -265,7 +261,7 @@ function showEmptyState() {
       </div>
       <span class="welcome-flow-arrow">→</span>
       <div class="welcome-flow-step">
-        <span class="welcome-flow-key">HEROES</span>
+        <span class="welcome-flow-key">PICKS</span>
         <span class="welcome-flow-desc">Pick your best</span>
       </div>
       <span class="welcome-flow-arrow">→</span>
@@ -298,9 +294,6 @@ function showEmptyState() {
       btn.addEventListener('click', () => openRecentShoot(btn.dataset.path));
     });
   });
-
-  document.getElementById('empty-scan-camera')?.addEventListener('click', scanForCamera);
-  document.getElementById('empty-select-dir')?.addEventListener('click', selectDirectory);
 }
 
 function hideEmptyState() {

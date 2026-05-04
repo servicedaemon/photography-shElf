@@ -65,7 +65,7 @@ gh run download 24760358446 --repo servicedaemon/photography-shElf --name shelf-
 - [ ] Select a folder with at least 5 image files.
 - [ ] The grid should populate with thumbnails within 30 seconds.
 
-**Expected:** Thumbnails render. Stage pill shows `CULL` (or `HEROES`/`FINAL` depending on folder name).
+**Expected:** Thumbnails render. Stage pill shows `CULL` (or `PICKS`/`FINAL` depending on folder name).
 
 **If thumbnails are stuck as skeletons:** see step 3 failure modes. Run the health check again to see which module failed.
 
@@ -91,7 +91,7 @@ gh run download 24760358446 --repo servicedaemon/photography-shElf --name shelf-
 
 ### 7. Sort in Place + shoot navigator
 - [ ] From the bridge card, click **Pick Heroes**.
-- [ ] The app navigates to the new Keeps folder. Stage pill shows **HEROES**.
+- [ ] The app navigates to the new Keeps folder. Stage pill shows **PICKS**.
 - [ ] A chip row appears above the grid showing `Unsorted / Keeps / Favorites / Rejects / Edited` with counts.
 - [ ] Click a chip — navigates to that folder.
 - [ ] Click the active chip — no-op.
