@@ -703,41 +703,76 @@ sortingRoutes.get('/shoot-context', (req, res) => {
 });
 
 // POST /api/sort-in-place
-// Body: { source }
-// Uses the marking state on `source` to move files into the shoot's existing
-// keeps/, rejects/, Favorites/, unsorted/ sibling folders. Does NOT create a
-// new dated bundle. Existing folder-name casing is preserved; missing folders
-// are created with canonical casing (Favorites uppercase, others lowercase).
+// Body: { source, targetShoot? }
+// Uses the marking state on `source` to move files into a shoot's
+// keeps/, rejects/, Favorites/, unsorted/ sibling folders.
+//
+// Two modes:
+//   - Default: source itself is a shoot sub-folder OR the shoot root;
+//     the route walks up to find the shoot root and routes marks into
+//     its existing siblings. (Pre-1.3.5 behavior.)
+//   - Merge mode (`targetShoot` set): caller supplies an absolute path
+//     to an EXISTING shoot under libraryRoot. Source can be ANY folder
+//     (typically a camera card outside libraryRoot). Marks route into
+//     the target shoot's subfolders. This powers the multi-camera
+//     workflow — two cameras culled separately, merged into one shoot
+//     with mark routing preserved.
+//
+// Existing folder-name casing is preserved; missing folders are created
+// with canonical casing (Favorites uppercase, others lowercase).
+// Filename collisions get -2/-3/... suffixes via uniqueDest.
 sortingRoutes.post('/sort-in-place', (req, res) => {
-  const { source } = req.body || {};
+  const { source, targetShoot } = req.body || {};
   if (!source) return res.status(400).json({ error: 'source required' });
   const sourcePath = path.resolve(source);
   if (!fs.existsSync(sourcePath) || !fs.statSync(sourcePath).isDirectory()) {
     return res.status(404).json({ error: 'Source not found' });
   }
 
-  const baseName = path.basename(sourcePath);
-
-  // Source may be either a shoot sub-folder, or the shoot root itself.
-  // Forgiving matching via normalizeSubfolderRole means "Favorites "
-  // (trailing space) or "Keep" (singular) still resolve correctly.
   let shootRoot;
-  if (normalizeSubfolderRole(baseName) !== null) {
-    shootRoot = path.dirname(sourcePath);
+
+  if (targetShoot) {
+    // Merge mode — caller picked an explicit destination shoot. The
+    // target must exist AND must be inside libraryRoot to prevent
+    // path-traversal (same containment check used by /api/folder-mark
+    // and /api/promote-favorites in v1.3.2).
+    const targetPath = path.resolve(targetShoot);
+    if (!fs.existsSync(targetPath) || !fs.statSync(targetPath).isDirectory()) {
+      return res.status(404).json({ error: 'Target shoot not found' });
+    }
+    const cfg = getConfig();
+    const libraryRoot = path.resolve(
+      cfg.libraryRoot || path.join(os.homedir(), 'Pictures', 'Shelf'),
+    );
+    if (!targetPath.startsWith(libraryRoot)) {
+      return res
+        .status(403)
+        .json({ error: 'Target shoot must be inside the configured library root' });
+    }
+    shootRoot = targetPath;
   } else {
-    // Is sourcePath itself a shoot root? (has any recognized child folders)
-    try {
-      const children = fs.readdirSync(sourcePath, { withFileTypes: true });
-      const hasShootSubs = children.some(
-        (c) => c.isDirectory() && normalizeSubfolderRole(c.name) !== null,
-      );
-      if (hasShootSubs) {
-        shootRoot = sourcePath;
-      } else {
-        return res.status(400).json({ error: 'Source is not a shoot sub-folder or shoot root' });
+    const baseName = path.basename(sourcePath);
+
+    // Source may be either a shoot sub-folder, or the shoot root itself.
+    // Forgiving matching via normalizeSubfolderRole means "Favorites "
+    // (trailing space) or "Keep" (singular) still resolve correctly.
+    if (normalizeSubfolderRole(baseName) !== null) {
+      shootRoot = path.dirname(sourcePath);
+    } else {
+      // Is sourcePath itself a shoot root? (has any recognized child folders)
+      try {
+        const children = fs.readdirSync(sourcePath, { withFileTypes: true });
+        const hasShootSubs = children.some(
+          (c) => c.isDirectory() && normalizeSubfolderRole(c.name) !== null,
+        );
+        if (hasShootSubs) {
+          shootRoot = sourcePath;
+        } else {
+          return res.status(400).json({ error: 'Source is not a shoot sub-folder or shoot root' });
+        }
+      } catch {
+        return res.status(400).json({ error: 'Cannot read source' });
       }
-    } catch {
-      return res.status(400).json({ error: 'Cannot read source' });
     }
   }
 
@@ -801,9 +836,16 @@ sortingRoutes.post('/sort-in-place', (req, res) => {
     const targetDir = targets[targetKey];
     if (path.resolve(targetDir) === sourcePath) continue;
 
-    const dest = path.join(targetDir, filename);
+    // For merge mode, prefer uniqueDest so two cameras' identically-named
+    // files coexist (IMG_1234.CR3 → IMG_1234.CR3 + IMG_1234-2.CR3). For
+    // legacy in-place mode (no targetShoot), keep the strict pre-1.3.5
+    // behavior of erroring on collision so users notice when something
+    // unusual happened inside their own shoot.
+    const dest = targetShoot
+      ? uniqueDest(targetDir, filename)
+      : path.join(targetDir, filename);
     try {
-      if (fs.existsSync(dest)) {
+      if (!targetShoot && fs.existsSync(dest)) {
         errors.push({ filename, error: 'destination already has a file with this name' });
         continue;
       }

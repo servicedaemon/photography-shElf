@@ -704,31 +704,93 @@ async function handleSort() {
     /* fall through */
   }
 
-  // Unified sort modal with a "Save to a new shoot folder" checkbox.
-  // Default: unchecked when inside a shoot (sort in place), checked when
-  // starting fresh from a camera card / loose folder.
+  // When NOT inside an existing shoot (fresh card, loose folder), fetch
+  // the list of existing shoots under libraryRoot. If any exist, the
+  // modal will offer a "Merge into existing shoot" option for the
+  // multi-camera workflow. Empty list = no merge UI rendered.
+  let libraryShoots = [];
+  if (!shootContext && libraryRoot) {
+    try {
+      const listRes = await fetch(`/api/list-dir?path=${encodeURIComponent(libraryRoot)}`);
+      if (listRes.ok) {
+        const listing = await listRes.json();
+        libraryShoots = (listing.shoots || []).filter((s) => s.path); // skip flat-only shoots
+      }
+    } catch {
+      /* fall through — merge UI just won't appear */
+    }
+  }
+
+  // Unified sort modal: checkbox toggles between in-place and new-shoot,
+  // and (when applicable) a second checkbox toggles merge-into-existing.
   const decision = await showSortModal({
     counts: { keeps, favs, rejects, unsorted, markedTotal, total: images.length },
     shootContext,
     libraryRoot,
+    libraryShoots,
   });
   if (!decision) return;
 
   if (decision.mode === 'in-place') {
     await doSortInPlace(shootContext);
+  } else if (decision.mode === 'merge') {
+    await doSortMerge(decision.targetShoot, decision.targetName);
   } else {
     await doSortNewBundle(decision.name);
   }
 }
 
+// Merge marked files from `source` into an existing shoot's sibling
+// folders. Server reuses /api/sort-in-place with targetShoot. No bridge
+// modal — the user is finishing one card and likely going to do another;
+// a calm toast is enough.
+async function doSortMerge(targetShootPath, targetName) {
+  try {
+    const res = await fetch('/api/sort-in-place', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ source, targetShoot: targetShootPath }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      showToast(data.error || 'Merge failed', 'error');
+      return;
+    }
+    const moved = data.moved || {};
+    const totalMoved =
+      (moved.keep || 0) + (moved.favorite || 0) + (moved.reject || 0) + (moved.unsorted || 0);
+    if (totalMoved === 0) {
+      showToast(`Nothing to merge into ${targetName} — mark some photos first.`, 'error');
+      return;
+    }
+    const parts = [];
+    if (moved.keep) parts.push(`${moved.keep} → keeps`);
+    if (moved.favorite) parts.push(`${moved.favorite} → Favorites`);
+    if (moved.reject) parts.push(`${moved.reject} → rejects`);
+    if (moved.unsorted) parts.push(`${moved.unsorted} → unsorted`);
+    showToast(`Merged ${totalMoved} into "${targetName}": ${parts.join(', ')}`, 'success');
+    if (window.shelf && window.shelf.showNotification) {
+      window.shelf.showNotification('Merge complete', `${totalMoved} into ${targetName}`);
+    }
+    bus.emit(EVENTS.REFRESH);
+  } catch (e) {
+    showToast('Merge failed: ' + e.message, 'error');
+  }
+}
+
 // The unified sort dialog. Returns { mode: 'in-place' } | { mode: 'new', name }
 // | null (cancelled).
-function showSortModal({ counts, shootContext, libraryRoot }) {
+function showSortModal({ counts, shootContext, libraryRoot, libraryShoots = [] }) {
   return new Promise((resolve) => {
     const overlay = document.getElementById('modal-overlay');
     const { keeps, favs, rejects, unsorted, markedTotal } = counts;
     const insideShoot = !!shootContext;
     const libraryRootDisplay = libraryRoot || '(default location)';
+    // Merge mode is only relevant when the user is NOT already inside an
+    // existing shoot AND the library has at least one shoot to merge into.
+    // Inside an existing shoot, "in place" already does the right thing.
+    const canMerge = !insideShoot && libraryShoots.length > 0;
+    let selectedMergeTarget = null; // { name, path }
 
     while (overlay.firstChild) overlay.removeChild(overlay.firstChild);
 
@@ -781,19 +843,112 @@ function showSortModal({ counts, shootContext, libraryRoot }) {
     nameWrap.appendChild(nameInput);
     modal.appendChild(nameWrap);
 
+    // Merge mode (only when canMerge): a second checkbox below the first.
+    // Checking it unchecks the new-shoot checkbox, hides the name input,
+    // and shows the shoot picker. Two cameras → one shoot.
+    let mergeCheck = null;
+    let mergeCheckRow = null;
+    let mergeWrap = null;
+    let renderShootPicker = null;
+    if (canMerge) {
+      mergeCheckRow = document.createElement('label');
+      mergeCheckRow.className = 'sort-check-row sort-merge-row';
+      mergeCheck = document.createElement('input');
+      mergeCheck.type = 'checkbox';
+      mergeCheck.id = 'sort-merge-existing';
+      const mergeLabel = document.createElement('span');
+      mergeLabel.textContent = 'Merge into an existing shoot instead';
+      mergeCheckRow.append(mergeCheck, mergeLabel);
+      modal.appendChild(mergeCheckRow);
+
+      mergeWrap = document.createElement('div');
+      mergeWrap.className = 'sort-merge-wrap';
+      mergeWrap.style.display = 'none';
+      const mergeHint = document.createElement('p');
+      mergeHint.className = 'sort-merge-hint';
+      mergeHint.textContent = 'Pick the shoot to merge into. Filename collisions are auto-renamed (-2, -3, …).';
+      mergeWrap.appendChild(mergeHint);
+      const list = document.createElement('div');
+      list.className = 'sort-shoot-list';
+      mergeWrap.appendChild(list);
+      modal.appendChild(mergeWrap);
+
+      renderShootPicker = () => {
+        list.replaceChildren();
+        for (const shoot of libraryShoots) {
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'folder-btn shoot-picker-btn sort-shoot-btn';
+          btn.dataset.path = shoot.path;
+          // Build a small summary of what's already in the destination
+          // so the user has context for the merge.
+          const sub = shoot.folders || {};
+          const dParts = [];
+          if (sub.keeps?.count) dParts.push(`${sub.keeps.count} keeps`);
+          if (sub.favorites?.count) dParts.push(`${sub.favorites.count} favs`);
+          if (sub.rejects?.count) dParts.push(`${sub.rejects.count} rejects`);
+          if (sub.unsorted?.count) dParts.push(`${sub.unsorted.count} unsorted`);
+          const summary = dParts.length ? dParts.join(' · ') : 'empty';
+
+          const nameEl = document.createElement('span');
+          nameEl.className = 'shoot-picker-name';
+          nameEl.textContent = shoot.name;
+          const summaryEl = document.createElement('span');
+          summaryEl.className = 'shoot-picker-summary';
+          summaryEl.textContent = summary;
+          btn.append(nameEl, summaryEl);
+
+          if (selectedMergeTarget && selectedMergeTarget.path === shoot.path) {
+            btn.classList.add('selected');
+          }
+
+          btn.addEventListener('click', () => {
+            selectedMergeTarget = { name: shoot.name, path: shoot.path };
+            renderShootPicker();
+            updateMode();
+          });
+          list.appendChild(btn);
+        }
+      };
+    }
+
     function updateMode() {
-      const newShoot = check.checked;
+      const merge = !!(mergeCheck && mergeCheck.checked);
+      const newShoot = check.checked && !merge;
+
+      // Toggle visibility — name input only when "new shoot" is the
+      // active mode; shoot picker only when "merge" is active.
       nameWrap.style.display = newShoot ? '' : 'none';
-      if (newShoot) {
+      if (mergeWrap) mergeWrap.style.display = merge ? '' : 'none';
+
+      if (merge) {
+        explainer.textContent = selectedMergeTarget
+          ? `Routes marked images into "${selectedMergeTarget.name}"'s keeps/favorites/rejects/unsorted folders.`
+          : 'Pick a shoot below — marked images will route into its keeps/favorites/rejects/unsorted folders.';
+      } else if (newShoot) {
         explainer.textContent = `Creates a new shoot folder under ${libraryRootDisplay} with unsorted/keeps/favorites/rejects subfolders. Change the location in File → Set Library Root…`;
       } else {
-        // shootContext is guaranteed to exist here: the checkbox is disabled
-        // when shootContext is null, so this branch can't run. Belt-and-suspenders.
+        // shootContext is guaranteed here: the new-shoot checkbox is forced-on
+        // and disabled when shootContext is null, so this branch can't run.
         const name = shootContext?.shootName || 'the current shoot';
         explainer.textContent = `Routes marked images into "${name}"'s existing folders. Unmarked photos stay in place.`;
       }
     }
-    check.addEventListener('change', updateMode);
+    check.addEventListener('change', () => {
+      // New-shoot and merge are mutually exclusive. Toggling one clears
+      // the other so the user is never in an ambiguous "both checked" state.
+      if (check.checked && mergeCheck) mergeCheck.checked = false;
+      updateMode();
+    });
+    if (mergeCheck) {
+      mergeCheck.addEventListener('change', () => {
+        if (mergeCheck.checked) {
+          check.checked = false;
+          if (renderShootPicker) renderShootPicker();
+        }
+        updateMode();
+      });
+    }
     updateMode();
     if (check.checked) setTimeout(() => nameInput.focus(), 0);
 
@@ -828,7 +983,25 @@ function showSortModal({ counts, shootContext, libraryRoot }) {
     };
 
     function onConfirm() {
-      if (check.checked) {
+      const merge = !!(mergeCheck && mergeCheck.checked);
+      if (merge) {
+        if (!selectedMergeTarget) {
+          showToast('Pick a shoot to merge into first.', 'error');
+          return;
+        }
+        if (markedTotal === 0) {
+          showToast(
+            'Nothing marked. Press K / F / X first, then merge.',
+            'error',
+          );
+          return;
+        }
+        close({
+          mode: 'merge',
+          targetShoot: selectedMergeTarget.path,
+          targetName: selectedMergeTarget.name,
+        });
+      } else if (check.checked) {
         const name = nameInput.value.trim();
         if (!name) {
           nameInput.focus();

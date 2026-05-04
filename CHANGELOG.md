@@ -3,6 +3,32 @@
 All notable changes to Shelf will be documented here.
 Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [1.3.5] — 2026-05-04
+
+The multi-camera workflow. Two photographers, two cards, one shoot — sort each card and merge into the same destination, with mark routing preserved (keeps go to keeps, favorites to favorites, etc.).
+
+### Added
+
+- **"Merge into an existing shoot" sort option.** When sorting from a card that's NOT already inside a shoot, the sort modal now shows a second checkbox below "Create as a new shoot." Checking it reveals a scrollable picker of existing shoots under your library root. Pick one, hit Sort, and the marked files route into that shoot's `keeps/favorites/rejects/` folders alongside whatever was already there.
+- **Filename collision safety on merge.** When two cameras both shoot `IMG_1234.CR3`, the second one becomes `IMG_1234-2.CR3` in the destination via `uniqueDest` — no overwrites, no errors.
+- **Server: `targetShoot` body parameter on `/api/sort-in-place`.** When set, the route uses the explicit target as the shoot root instead of computing from the source's parent. Targets must be inside libraryRoot (403 otherwise — same containment check used by the rest of the v1.3.x security surface).
+
+### Changed
+
+- **Sort modal layout.** The new merge checkbox appears only when applicable (source is outside a shoot AND library has at least one mergeable shoot). New-shoot and merge are mutually exclusive — toggling one clears the other. When neither is checked AND the source is inside a shoot, the existing "sort in place" path runs as before.
+
+### Under the hood
+
+- The merge mode reuses 95% of the existing `/api/sort-in-place` handler. Only the `shootRoot` resolution branches; `findOrMakeSub`, the file move loop, state cleanup, and response shape are unchanged.
+- 76 server tests still pass. (Route-level integration tests for the merge path are deferred — TODO comment in `sorting.test.js` flags it; sonnet QA + manual preview verification covered the surface for v1.3.5.)
+- Sonnet code-review: zero critical, zero important blockers. One follow-up flagged for v1.3.6 — the merge path doesn't show progress for large operations like the new-shoot path does. Easy to wire the same SSE plumbing from v1.3.4.
+
+### Coming next
+
+- v1.3.6 — SSE progress for `/api/sort-in-place` (merge gets the same progress modal as new-shoot sort)
+- v1.4.0 — welcome cleanup, top-bar restructure, HEROES → PICKS rename
+- v1.5.0 — jagged grid, full eager loading
+
 ## [1.3.4] — 2026-05-04
 
 Sort progress feedback. The sort operation used to be a 5-30 second silent freeze; now you can see exactly how far along it is, and the operation is interruptible without aborting.

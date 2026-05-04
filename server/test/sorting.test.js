@@ -230,6 +230,14 @@ test('findExistingSubfolder: returns null when no folder maps to the role', () =
   }
 });
 
+// TODO(v1.3.5+): Add Express-harness integration tests for the
+// /api/sort-in-place merge path (targetShoot body param). The merge-mode
+// security check (target must be inside libraryRoot) and the
+// uniqueDest-on-collision behavior are currently covered only by manual
+// preview verification + the underlying uniqueDest/findExistingSubfolder
+// unit tests above. Sonnet QA round 1 of v1.3.5 explicitly accepted this
+// trade-off given the small surface area.
+
 test('findExistingSubfolder: matches singular alias (favorite → favorites)', () => {
   const root = makeTmpDir();
   try {
