@@ -54,15 +54,23 @@ async function checkFavoritesFolder() {
     hasFavoritesFolder = false;
     return;
   }
-  if (/[/\\]Favorites$/.test(currentSource)) {
-    hasFavoritesFolder = true;
-    updateActions();
-    return;
-  }
-  const favPath = currentSource + '/Favorites';
+  // Use the server's shoot-context to find the actual favorites sibling
+  // path (the server normalizes "Favorites ", "favorite", "favs" all to
+  // the canonical 'favorites' role). Constructing `source + '/Favorites'`
+  // client-side would miss any non-canonical on-disk spelling.
   try {
-    const res = await fetch(`/api/images?source=${encodeURIComponent(favPath)}`);
-    hasFavoritesFolder = res.ok;
+    const res = await fetch(`/api/shoot-context?source=${encodeURIComponent(currentSource)}`);
+    if (!res.ok) {
+      hasFavoritesFolder = false;
+      updateActions();
+      return;
+    }
+    const ctx = await res.json();
+    hasFavoritesFolder = !!(
+      ctx.insideShoot &&
+      ctx.siblings?.favorites &&
+      ctx.siblings.favorites.count > 0
+    );
   } catch {
     hasFavoritesFolder = false;
   }

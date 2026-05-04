@@ -60,17 +60,32 @@ export async function pushRecentShoot(p) {
 }
 
 // Strip a known shoot sub-folder name (keeps, rejects, etc.) from the basename.
-// Mirrors the server-side rule. Older versions of Shelf pushed sub-folder paths
-// into the recent-shoots list — this normalizes existing data on load so
-// returning users don't see "shoot/keeps" + "shoot/rejects" cluttering the
-// welcome screen.
-const SHOOT_SUBS = new Set(['unsorted', 'keeps', 'rejects', 'favorites', 'edited']);
+// Mirrors the server-side `normalizeSubfolderRole` matcher: trims whitespace,
+// case-insensitive, accepts singular/plural variants. Older versions of Shelf
+// pushed sub-folder paths into the recent-shoots list, AND hand-renamed shoots
+// from the wild may have folders like "Favorites " (trailing space) — both
+// need normalizing so the welcome screen doesn't show duplicate entries.
+const SHOOT_SUB_ALIASES = new Set([
+  'unsorted',
+  'unmarked',
+  'keep',
+  'keeps',
+  'reject',
+  'rejects',
+  'favorite',
+  'favorites',
+  'fav',
+  'favs',
+  'edit',
+  'edits',
+  'edited',
+]);
 function normalizeShootPath(p) {
   if (!p) return p;
   const trimmed = p.replace(/[/\\]+$/, '');
   const parts = trimmed.split(/[/\\]/);
-  const base = parts[parts.length - 1].toLowerCase();
-  if (SHOOT_SUBS.has(base)) {
+  const base = parts[parts.length - 1].toLowerCase().trim();
+  if (SHOOT_SUB_ALIASES.has(base)) {
     parts.pop();
     return parts.join('/') || trimmed;
   }

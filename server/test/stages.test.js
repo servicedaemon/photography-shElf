@@ -3,7 +3,61 @@ import assert from 'node:assert/strict';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { detectStage } from '../lib/stages.js';
+import { detectStage, normalizeSubfolderRole } from '../lib/stages.js';
+
+// ─── normalizeSubfolderRole — forgiving subfolder matcher ──────────
+
+test('normalizeSubfolderRole: exact canonical names', () => {
+  assert.equal(normalizeSubfolderRole('unsorted'), 'unsorted');
+  assert.equal(normalizeSubfolderRole('keeps'), 'keeps');
+  assert.equal(normalizeSubfolderRole('rejects'), 'rejects');
+  assert.equal(normalizeSubfolderRole('favorites'), 'favorites');
+  assert.equal(normalizeSubfolderRole('edited'), 'edited');
+});
+
+test('normalizeSubfolderRole: case-insensitive', () => {
+  assert.equal(normalizeSubfolderRole('Favorites'), 'favorites');
+  assert.equal(normalizeSubfolderRole('KEEPS'), 'keeps');
+  assert.equal(normalizeSubfolderRole('ReJecTs'), 'rejects');
+});
+
+test('normalizeSubfolderRole: trims leading/trailing whitespace', () => {
+  // Real case from a hand-renamed shoot — Finder created "Favorites "
+  // with a trailing space, which broke recognition pre-v1.3.2.
+  assert.equal(normalizeSubfolderRole('Favorites '), 'favorites');
+  assert.equal(normalizeSubfolderRole(' keeps'), 'keeps');
+  assert.equal(normalizeSubfolderRole('  unsorted  '), 'unsorted');
+});
+
+test('normalizeSubfolderRole: singular and plural variants', () => {
+  assert.equal(normalizeSubfolderRole('keep'), 'keeps');
+  assert.equal(normalizeSubfolderRole('reject'), 'rejects');
+  assert.equal(normalizeSubfolderRole('favorite'), 'favorites');
+  assert.equal(normalizeSubfolderRole('edit'), 'edited');
+});
+
+test('normalizeSubfolderRole: common abbreviations', () => {
+  assert.equal(normalizeSubfolderRole('fav'), 'favorites');
+  assert.equal(normalizeSubfolderRole('favs'), 'favorites');
+  assert.equal(normalizeSubfolderRole('edits'), 'edited');
+  assert.equal(normalizeSubfolderRole('unmarked'), 'unsorted');
+});
+
+test('normalizeSubfolderRole: returns null for non-matches', () => {
+  assert.equal(normalizeSubfolderRole('something_else'), null);
+  assert.equal(normalizeSubfolderRole('archive'), null);
+  assert.equal(normalizeSubfolderRole(''), null);
+  // Multi-word strings aren't substring-matched; only exact-after-trim matches
+  // count, so "keep me" or "favorites of last week" won't false-positive.
+  assert.equal(normalizeSubfolderRole('keep me'), null);
+  assert.equal(normalizeSubfolderRole('favorites of last week'), null);
+});
+
+test('normalizeSubfolderRole: handles non-string input safely', () => {
+  assert.equal(normalizeSubfolderRole(null), null);
+  assert.equal(normalizeSubfolderRole(undefined), null);
+  assert.equal(normalizeSubfolderRole(42), null);
+});
 
 /* ─── Flat sort-output paths — no fs needed, pure path detection ─── */
 
@@ -97,6 +151,49 @@ test('random folder (not inside a shoot) → CULL', () => {
   try {
     fs.writeFileSync(path.join(root, 'a.dng'), '');
     assert.equal(detectStage(root), 'CULL');
+  } finally {
+    fs.rmSync(root, { recursive: true });
+  }
+});
+
+// Regression test for the v1.3.2 fuzzy-matcher fix: a hand-renamed shoot
+// with non-canonical sub-folder names (here "Favorites " with a trailing
+// space, "Keeps " with trailing space) should still be recognized and
+// stage-detected correctly. Mirrors the actual on-disk shape that bit a
+// user before the normalizer landed.
+test('inline shoot: detects stage via non-canonical "Favorites " (trailing space)', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'shelf-stage-test-fuzzy-'));
+  const shoot = path.join(root, '2026-04 - Fuzzy Fixture');
+  fs.mkdirSync(shoot);
+  // Subfolders with trailing whitespace + capitals — the wild form the
+  // normalizer handles. Note: trailing-space folder names ARE allowed on
+  // POSIX filesystems (they're not on Windows); macOS APFS preserves them.
+  fs.mkdirSync(path.join(shoot, 'Keeps '));
+  fs.mkdirSync(path.join(shoot, 'Favorites '));
+  fs.mkdirSync(path.join(shoot, 'Rejects '));
+  fs.mkdirSync(path.join(shoot, 'Unsorted'));
+  // Populate Favorites — should put us at FINAL
+  fs.writeFileSync(path.join(shoot, 'Favorites ', 'IMG_0001.dng'), '');
+  try {
+    assert.equal(detectStage(shoot), 'FINAL');
+    assert.equal(detectStage(path.join(shoot, 'Keeps ')), 'FINAL');
+    assert.equal(detectStage(path.join(shoot, 'Unsorted')), 'FINAL');
+  } finally {
+    fs.rmSync(root, { recursive: true });
+  }
+});
+
+test('inline shoot: singular variants ("keep", "favorite") still recognize as a shoot', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'shelf-stage-test-singular-'));
+  const shoot = path.join(root, 'singular shoot');
+  fs.mkdirSync(shoot);
+  fs.mkdirSync(path.join(shoot, 'keep'));
+  fs.mkdirSync(path.join(shoot, 'favorite'));
+  fs.mkdirSync(path.join(shoot, 'reject'));
+  fs.writeFileSync(path.join(shoot, 'keep', 'IMG_0001.dng'), '');
+  try {
+    // keeps populated, no favorites/edited → HEROES
+    assert.equal(detectStage(shoot), 'HEROES');
   } finally {
     fs.rmSync(root, { recursive: true });
   }

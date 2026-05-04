@@ -3,6 +3,28 @@
 All notable changes to Shelf will be documented here.
 Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [1.3.2] — 2026-05-04
+
+Forgiving subfolder matching everywhere. Shoots in the wild that have non-canonical folder names — `Favorites ` (trailing space), `Keep` (singular), `Favs` (abbreviated) — now register correctly across every code path.
+
+### Fixed
+
+- **Shoots with hand-renamed subfolders no longer show empty in the picker.** Previously `/api/list-dir` did `name.toLowerCase()` and compared exact-string against `['unsorted', 'keeps', 'rejects', 'favorites', 'edited']` — so a shoot with `Favorites ` (trailing space) failed every check and the directory came up empty. Now goes through `normalizeSubfolderRole`, which trims, lowercases, and accepts singular/plural plus common abbreviations (`fav`/`favs` → favorites, `unmarked` → unsorted, etc.).
+- **Sort-in-place no longer scatters files across canonical + non-canonical duplicate folders.** `findOrMakeSub` now uses the same forgiving matcher, so files routed to `favorites` land in your existing `Favorites ` folder instead of creating a fresh `favorites/` alongside it.
+- **Promote-favorites detects nested layout via the normalizer.** `looksLikeNestedKeeps` and `findExistingSubfolder` are pure exported helpers, so a `Keeps ` (trailing space) source correctly identifies its peer `Favorites ` instead of falling through to legacy flat-layout handling.
+- **Stage detection uses the normalizer too.** `detectStageFromPath` and `detectStageFromShoot` both go through `normalizeSubfolderRole` instead of exact-string comparisons, so non-canonical names produce the right stage label.
+- **Client-side path constructions resolve via shoot-context.** `actions.js` (`checkFavoritesFolder`), `main.js` (`handleOpenEditor`, "Open Favorites" bridge button), and `shootRootOf` all now read the actual on-disk favorites path from `/api/shoot-context` instead of hardcoding `+ '/Favorites'`.
+
+### Added
+
+- **Pure helpers** in `server/lib/stages.js` (`normalizeSubfolderRole`) and `server/routes/sorting.js` (`looksLikeNestedKeeps`, `findExistingSubfolder`) — exported and unit-tested.
+- **Aliases recognized:** singular forms (`keep`, `reject`, `favorite`, `edit`, `unmarked`), abbreviations (`fav`, `favs`, `edits`), and case/whitespace variants of the canonical names. Conservative — multi-word strings ("favorites of last week", "keep me") still return null to avoid false positives.
+
+### Under the hood
+
+- 83 server tests pass (was 67), lint baseline 0 warnings/errors.
+- Two rounds of sonnet code review. Round 1 caught data-scatter risk in `/sort-in-place`; round 2 caught the same category bug in `/promote-favorites` plus three client `+ '/Favorites'` path constructions. Both rounds resolved before ship.
+
 ## [1.3.1] — 2026-04-29
 
 Stack-aware UI inside the lightbox. The keys already worked; now you can see them work.

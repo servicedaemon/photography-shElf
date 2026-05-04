@@ -4,6 +4,7 @@ import fs from 'fs';
 import { getConfig, setConfig } from '../lib/state.js';
 import { detectCameraDrives } from '../lib/drives.js';
 import { pickFolder, openFolderInLightroom } from '../lib/platform.js';
+import { normalizeSubfolderRole } from '../lib/stages.js';
 
 export const configRoutes = Router();
 
@@ -90,7 +91,6 @@ configRoutes.get('/list-dir', (req, res) => {
 
   const IMAGE_RE = /\.(cr3|cr2|arw|nef|raf|dng|jpg|jpeg|tif|tiff)$/i;
   const SORT_FOLDER_RE = /^(Keeps|Favorites|Rejects|Unsorted)\s*-\s*(\d{2}-\d{4})\s*-\s*(.+)$/i;
-  const SORT_SUBFOLDER_NAMES = ['keeps', 'rejects', 'unsorted', 'edited', 'favorites'];
 
   function countImages(dirPath) {
     try {
@@ -129,7 +129,11 @@ configRoutes.get('/list-dir', (req, res) => {
       continue;
     }
 
-    // Check if this folder contains keeps/rejects/unsorted subfolders (shoot directory)
+    // Check if this folder contains keeps/rejects/unsorted subfolders (shoot directory).
+    // Subfolder name matching is forgiving — variants like "Favorites ",
+    // "favorite", or "Favs" all map to the same canonical role via
+    // normalizeSubfolderRole, so hand-edited shoots from the wild still
+    // register correctly.
     let subEntries;
     try {
       subEntries = fs.readdirSync(subPath, { withFileTypes: true });
@@ -137,20 +141,21 @@ configRoutes.get('/list-dir', (req, res) => {
       continue;
     }
 
-    const subDirs = subEntries.filter((e) => e.isDirectory()).map((e) => e.name.toLowerCase());
+    const recognizedSubs = subEntries
+      .filter((e) => e.isDirectory())
+      .map((e) => ({ name: e.name, role: normalizeSubfolderRole(e.name) }))
+      .filter((s) => s.role !== null);
 
-    const hasSortSubs = SORT_SUBFOLDER_NAMES.some((s) => subDirs.includes(s));
+    const hasSortSubs = recognizedSubs.length > 0;
 
     if (hasSortSubs) {
-      // It's a shoot folder like "2026-03 - Kat x Tsuki"
+      // It's a shoot folder like "2026-03 - Kat x Tsuki". Each recognized
+      // subfolder lands in the canonical-role slot regardless of how the
+      // user spelled or cased it on disk.
       const folders = {};
-      for (const sub of subEntries) {
-        if (!sub.isDirectory()) continue;
-        const lc = sub.name.toLowerCase();
-        if (SORT_SUBFOLDER_NAMES.includes(lc)) {
-          const folderPath = path.join(subPath, sub.name);
-          folders[lc] = { path: folderPath, count: countImages(folderPath) };
-        }
+      for (const { name, role } of recognizedSubs) {
+        const folderPath = path.join(subPath, name);
+        folders[role] = { path: folderPath, count: countImages(folderPath) };
       }
       // Also count loose images at root of shoot folder
       const rootCount = countImages(subPath);

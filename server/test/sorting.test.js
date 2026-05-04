@@ -9,7 +9,11 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { uniqueDest } from '../routes/sorting.js';
+import {
+  uniqueDest,
+  looksLikeNestedKeeps,
+  findExistingSubfolder,
+} from '../routes/sorting.js';
 
 function makeTmpDir() {
   return fs.mkdtempSync(path.join(os.tmpdir(), 'shelf-test-'));
@@ -142,6 +146,96 @@ test('layout detection: case-insensitive match on "keeps"', () => {
     fs.mkdirSync(path.join(shoot, 'KEEPS'), { recursive: true });
     fs.mkdirSync(path.join(shoot, 'unsorted'), { recursive: true });
     assert.equal(looksLikeNestedShootKeeps(path.join(shoot, 'KEEPS')), true);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+// ─── looksLikeNestedKeeps + findExistingSubfolder (the actual exports) ───
+
+test('looksLikeNestedKeeps: nested when keeps has a canonical-role peer', () => {
+  const root = makeTmpDir();
+  try {
+    const shoot = path.join(root, 'My Shoot');
+    fs.mkdirSync(path.join(shoot, 'keeps'), { recursive: true });
+    fs.mkdirSync(path.join(shoot, 'favorites'), { recursive: true });
+    assert.equal(looksLikeNestedKeeps(path.join(shoot, 'keeps')), true);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('looksLikeNestedKeeps: works with trailing-space "Keeps " peer "Favorites "', () => {
+  // The exact bug scenario: a hand-renamed shoot with non-canonical
+  // sub-folder names. Without the normalizer, both folders would fail to
+  // match, looksNested would be false, and promote-favorites would create
+  // a fresh "Favorites/" inside "Keeps " — scattering files across two
+  // duplicate folders.
+  const root = makeTmpDir();
+  try {
+    const shoot = path.join(root, '2026 - 04 - Music Making');
+    fs.mkdirSync(path.join(shoot, 'Keeps '), { recursive: true });
+    fs.mkdirSync(path.join(shoot, 'Favorites '), { recursive: true });
+    fs.mkdirSync(path.join(shoot, 'Rejects '), { recursive: true });
+    fs.mkdirSync(path.join(shoot, 'Unsorted'), { recursive: true });
+    assert.equal(looksLikeNestedKeeps(path.join(shoot, 'Keeps ')), true);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('looksLikeNestedKeeps: false for standalone "keeps" with no peers', () => {
+  const root = makeTmpDir();
+  try {
+    const standalone = path.join(root, 'keeps');
+    fs.mkdirSync(standalone, { recursive: true });
+    assert.equal(looksLikeNestedKeeps(standalone), false);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('looksLikeNestedKeeps: false when leaf is not a keeps variant', () => {
+  const root = makeTmpDir();
+  try {
+    const shoot = path.join(root, 'shoot');
+    fs.mkdirSync(path.join(shoot, 'favorites'), { recursive: true });
+    fs.mkdirSync(path.join(shoot, 'unsorted'), { recursive: true });
+    // Pointing at favorites, not keeps — should NOT be detected as nested keeps
+    assert.equal(looksLikeNestedKeeps(path.join(shoot, 'favorites')), false);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('findExistingSubfolder: returns canonical-role match preserving on-disk name', () => {
+  const root = makeTmpDir();
+  try {
+    fs.mkdirSync(path.join(root, 'Favorites '), { recursive: true });
+    const found = findExistingSubfolder(root, 'favorites');
+    assert.equal(found, path.join(root, 'Favorites '));
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('findExistingSubfolder: returns null when no folder maps to the role', () => {
+  const root = makeTmpDir();
+  try {
+    fs.mkdirSync(path.join(root, 'archive'), { recursive: true });
+    fs.mkdirSync(path.join(root, 'random'), { recursive: true });
+    assert.equal(findExistingSubfolder(root, 'favorites'), null);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('findExistingSubfolder: matches singular alias (favorite → favorites)', () => {
+  const root = makeTmpDir();
+  try {
+    fs.mkdirSync(path.join(root, 'favorite'), { recursive: true });
+    const found = findExistingSubfolder(root, 'favorites');
+    assert.equal(found, path.join(root, 'favorite'));
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }

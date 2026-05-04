@@ -4,6 +4,7 @@ import os from 'os';
 import fs from 'fs';
 import { getState, setState, pushUndo, popUndo, getConfig } from '../lib/state.js';
 import { validateFilename, VALID_FILENAME } from '../lib/validate.js';
+import { normalizeSubfolderRole } from '../lib/stages.js';
 
 export const sortingRoutes = Router();
 
@@ -161,6 +162,45 @@ sortingRoutes.post('/sort', async (req, res) => {
   });
 });
 
+// Pure helper: true when `sourcePath` is the keeps subfolder of a real
+// shoot. "Real" = the parent contains at least one peer folder mapping
+// to a different canonical role (favorites/rejects/unsorted/edited) via
+// normalizeSubfolderRole. Avoids false-positive nesting when someone has
+// a standalone "keep" folder. Exposed for tests.
+export function looksLikeNestedKeeps(sourcePath) {
+  const parent = path.dirname(sourcePath);
+  const leafRole = normalizeSubfolderRole(path.basename(sourcePath));
+  if (leafRole !== 'keeps' || !fs.existsSync(parent)) return false;
+  try {
+    for (const e of fs.readdirSync(parent, { withFileTypes: true })) {
+      if (!e.isDirectory()) continue;
+      const r = normalizeSubfolderRole(e.name);
+      if (r && r !== 'keeps') return true;
+    }
+  } catch {
+    return false;
+  }
+  return false;
+}
+
+// Pure helper: find the on-disk subfolder under `parent` whose name maps
+// to `canonicalRole` via the forgiving matcher. Returns the full path
+// (preserving the on-disk casing/whitespace) or null if no match. Lets
+// us reuse "Favorites " (trailing space) or "favorite" instead of
+// creating a duplicate canonical sibling. Exposed for tests.
+export function findExistingSubfolder(parent, canonicalRole) {
+  try {
+    for (const e of fs.readdirSync(parent, { withFileTypes: true })) {
+      if (e.isDirectory() && normalizeSubfolderRole(e.name) === canonicalRole) {
+        return path.join(parent, e.name);
+      }
+    }
+  } catch {
+    /* none */
+  }
+  return null;
+}
+
 // Pure helper: pick a destination path that doesn't already exist by
 // appending `-2`, `-3`, … before the extension. Exposed for tests.
 export function uniqueDest(dir, filename) {
@@ -268,23 +308,17 @@ sortingRoutes.post('/promote-favorites', (req, res) => {
       .json({ error: 'source must be inside the configured library root' });
   }
 
-  // Layout detection: nested only when `source` is `<shoot>/keeps/` AND
-  // the parent looks like a real shoot folder (has at least one of the
-  // peer status subfolders we'd expect). Avoids false-positive nesting
-  // when someone happens to drop photos into a folder named "keeps".
+  // Layout detection + favorites-target resolution via pure helpers so the
+  // logic is unit-testable and consistent with the rest of the codebase.
   const parent = path.dirname(sourcePath);
-  const leaf = path.basename(sourcePath).toLowerCase();
-  const looksNested =
-    leaf === 'keeps' &&
-    fs.existsSync(parent) &&
-    (fs.existsSync(path.join(parent, 'favorites')) ||
-      fs.existsSync(path.join(parent, 'rejects')) ||
-      fs.existsSync(path.join(parent, 'unsorted')));
+  const looksNested = looksLikeNestedKeeps(sourcePath);
 
   let favDir;
   if (looksNested) {
-    // Peer favorites folder under the shoot
-    favDir = path.join(parent, 'favorites');
+    // Peer favorites folder under the shoot — reuse any existing on-disk
+    // variant ("Favorites ", "favorite", etc.) instead of creating a fresh
+    // canonical sibling that would scatter files across two folders.
+    favDir = findExistingSubfolder(parent, 'favorites') || path.join(parent, 'favorites');
   } else {
     // Flat (legacy): Favorites/ subfolder inside the source
     favDir = path.join(sourcePath, 'Favorites');
@@ -448,7 +482,9 @@ sortingRoutes.get('/sibling-shoots', (req, res) => {
   let parent = path.dirname(sourcePath);
   let shootRoot = sourcePath;
   const base = path.basename(sourcePath);
-  if (['keeps', 'unsorted', 'favorites', 'rejects', 'edited'].includes(base.toLowerCase())) {
+  // normalizeSubfolderRole forgives whitespace + case + singular/plural,
+  // so trailing-space "Favorites " counts as a known sub-folder.
+  if (normalizeSubfolderRole(base) !== null) {
     shootRoot = parent;
     parent = path.dirname(parent);
   }
@@ -505,7 +541,7 @@ sortingRoutes.post('/move-to-shoot', async (req, res) => {
     // Parent for new shoot: if source is inside a sub-folder (keeps/unsorted/etc), use the grandparent
     let parent = path.dirname(sourcePath);
     const base = path.basename(sourcePath);
-    if (['keeps', 'unsorted', 'favorites', 'rejects', 'edited'].includes(base.toLowerCase())) {
+    if (normalizeSubfolderRole(base) !== null) {
       parent = path.dirname(parent);
     }
     destFolder = path.join(parent, safeName);
@@ -561,22 +597,23 @@ sortingRoutes.get('/shoot-context', (req, res) => {
   const sourcePath = path.resolve(source);
   if (!fs.existsSync(sourcePath)) return res.status(404).json({ error: 'Not found' });
 
-  const base = path.basename(sourcePath).toLowerCase();
-  const SUBS = ['keeps', 'rejects', 'unsorted', 'favorites', 'edited'];
+  const baseName = path.basename(sourcePath);
+  const baseRole = normalizeSubfolderRole(baseName);
 
   // Figure out the shoot root: either sourcePath itself (if sourcePath IS a
-  // shoot root containing SUBS folders), or its parent (if sourcePath is a
-  // known sub-folder of a shoot).
+  // shoot root containing recognized sub-folders), or its parent (if
+  // sourcePath is a known sub-folder of a shoot — match is forgiving on
+  // whitespace, case, singular/plural).
   let shootRoot;
-  let currentSub = base;
-  if (SUBS.includes(base)) {
+  let currentSub = baseRole; // canonical role, or null if at shoot root
+  if (baseRole !== null) {
     shootRoot = path.dirname(sourcePath);
   } else {
-    // Check if sourcePath itself is a shoot (has any SUB folders as children)
+    // Check if sourcePath itself is a shoot (has any recognized children)
     try {
       const children = fs.readdirSync(sourcePath, { withFileTypes: true });
       const hasShootSubs = children.some(
-        (c) => c.isDirectory() && SUBS.includes(c.name.toLowerCase()),
+        (c) => c.isDirectory() && normalizeSubfolderRole(c.name) !== null,
       );
       if (hasShootSubs) {
         shootRoot = sourcePath;
@@ -606,10 +643,10 @@ sortingRoutes.get('/shoot-context', (req, res) => {
   }
   for (const e of entries) {
     if (!e.isDirectory()) continue;
-    const lc = e.name.toLowerCase();
-    if (SUBS.includes(lc)) {
+    const role = normalizeSubfolderRole(e.name);
+    if (role) {
       const p = path.join(shootRoot, e.name);
-      siblings[lc] = { path: p, count: countImages(p) };
+      siblings[role] = { path: p, count: countImages(p) };
     }
   }
 
@@ -641,19 +678,20 @@ sortingRoutes.post('/sort-in-place', (req, res) => {
     return res.status(404).json({ error: 'Source not found' });
   }
 
-  const base = path.basename(sourcePath).toLowerCase();
-  const SUBS = ['keeps', 'rejects', 'unsorted', 'favorites', 'edited'];
+  const baseName = path.basename(sourcePath);
 
   // Source may be either a shoot sub-folder, or the shoot root itself.
+  // Forgiving matching via normalizeSubfolderRole means "Favorites "
+  // (trailing space) or "Keep" (singular) still resolve correctly.
   let shootRoot;
-  if (SUBS.includes(base)) {
+  if (normalizeSubfolderRole(baseName) !== null) {
     shootRoot = path.dirname(sourcePath);
   } else {
-    // Is sourcePath itself a shoot root? (has any SUB child folders)
+    // Is sourcePath itself a shoot root? (has any recognized child folders)
     try {
       const children = fs.readdirSync(sourcePath, { withFileTypes: true });
       const hasShootSubs = children.some(
-        (c) => c.isDirectory() && SUBS.includes(c.name.toLowerCase()),
+        (c) => c.isDirectory() && normalizeSubfolderRole(c.name) !== null,
       );
       if (hasShootSubs) {
         shootRoot = sourcePath;
@@ -665,11 +703,13 @@ sortingRoutes.post('/sort-in-place', (req, res) => {
     }
   }
 
-  // Figure out existing sibling folders (preserve casing), compute targets
-  function findOrMakeSub(lcName, preferredCase) {
+  // Find or create the sub-folder for a given canonical role. Reuses any
+  // existing on-disk variant (keeps "Favorites " unchanged on disk) so we
+  // don't scatter files across canonical + non-canonical duplicates.
+  function findOrMakeSub(canonicalRole, preferredCase) {
     const entries = fs.readdirSync(shootRoot, { withFileTypes: true });
     for (const e of entries) {
-      if (e.isDirectory() && e.name.toLowerCase() === lcName) {
+      if (e.isDirectory() && normalizeSubfolderRole(e.name) === canonicalRole) {
         return path.join(shootRoot, e.name);
       }
     }
@@ -761,19 +801,20 @@ sortingRoutes.get('/list-folder-files', (req, res) => {
     return res.status(404).json({ error: 'Not found' });
   }
 
-  const ALLOWED_SUBS = ['keeps', 'rejects', 'unsorted', 'favorites', 'edited'];
-  const base = path.basename(resolved).toLowerCase();
-  if (!ALLOWED_SUBS.includes(base)) {
+  const baseName = path.basename(resolved);
+  const baseRole = normalizeSubfolderRole(baseName);
+  if (baseRole === null) {
     return res.status(403).json({ error: 'Path is not a recognized shoot sub-folder' });
   }
-  // Require at least one sibling also matches an allowed sub-folder name.
+  // Require at least one sibling that maps to a different canonical role
+  // (using the forgiving matcher, so "Favorites " counts).
   const parent = path.dirname(resolved);
   let hasSibling = false;
   try {
     for (const e of fs.readdirSync(parent, { withFileTypes: true })) {
       if (!e.isDirectory()) continue;
-      const lc = e.name.toLowerCase();
-      if (lc !== base && ALLOWED_SUBS.includes(lc)) {
+      const role = normalizeSubfolderRole(e.name);
+      if (role && role !== baseRole) {
         hasSibling = true;
         break;
       }

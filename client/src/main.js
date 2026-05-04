@@ -471,13 +471,30 @@ function bestShootEntry(shoot) {
 
 // Normalize a path to its shoot root: if the basename is a known shoot
 // sub-folder (keeps, unsorted, etc.), strip it. Otherwise return as-is.
+// Mirrors the server-side `normalizeSubfolderRole` matcher: trims
+// whitespace, accepts singular/plural and common abbreviations, so
+// hand-renamed folders like "Favorites " or "fav" still resolve.
+const SHOOT_SUB_ALIASES = new Set([
+  'unsorted',
+  'unmarked',
+  'keep',
+  'keeps',
+  'reject',
+  'rejects',
+  'favorite',
+  'favorites',
+  'fav',
+  'favs',
+  'edit',
+  'edits',
+  'edited',
+]);
 function shootRootOf(p) {
   if (!p) return p;
   const trimmed = p.replace(/[/\\]+$/, '');
   const parts = trimmed.split(/[/\\]/);
-  const base = parts[parts.length - 1].toLowerCase();
-  const SUBS = ['unsorted', 'keeps', 'rejects', 'favorites', 'edited'];
-  if (SUBS.includes(base)) {
+  const base = parts[parts.length - 1].toLowerCase().trim();
+  if (SHOOT_SUB_ALIASES.has(base)) {
     parts.pop();
     return parts.join('/') || trimmed;
   }
@@ -992,8 +1009,31 @@ async function handleConvert() {
 }
 
 async function handleOpenEditor() {
-  // Determine the Favorites folder path
-  const favoritesPath = /[/\\]Favorites$/.test(source) ? source : source + '/Favorites';
+  // Resolve the favorites folder via shoot-context so the actual on-disk
+  // name (could be "Favorites ", "favorite", "favs", etc.) is used. Falls
+  // back to source itself when we're already inside the favorites folder
+  // (the server detects this via currentSub === 'favorites').
+  let favoritesPath = source;
+  try {
+    const ctx = await fetch(
+      `/api/shoot-context?source=${encodeURIComponent(source)}`,
+    ).then((r) => (r.ok ? r.json() : null));
+    if (ctx?.insideShoot) {
+      if (ctx.currentSub === 'favorites') {
+        favoritesPath = source;
+      } else if (ctx.siblings?.favorites?.path) {
+        favoritesPath = ctx.siblings.favorites.path;
+      } else {
+        // Shoot exists but no favorites sibling yet — fall back to legacy
+        // construction so the open still attempts a sensible path.
+        favoritesPath = source + '/Favorites';
+      }
+    } else {
+      favoritesPath = source + '/Favorites';
+    }
+  } catch {
+    favoritesPath = source + '/Favorites';
+  }
 
   try {
     const res = await fetch('/api/open-in-lightroom', {
@@ -1272,9 +1312,23 @@ function showPromoteBridge(count, _folderName) {
     close();
     bus.emit(EVENTS.REFRESH);
   });
-  document.getElementById('bridge-open-favorites').addEventListener('click', () => {
+  document.getElementById('bridge-open-favorites').addEventListener('click', async () => {
     close();
-    loadSource(source + '/Favorites');
+    // Resolve the actual favorites sibling via shoot-context so we open
+    // the user's on-disk variant (e.g. "Favorites " with a trailing space)
+    // rather than a hardcoded "/Favorites" path that may not exist.
+    let favPath = source + '/Favorites';
+    try {
+      const ctx = await fetch(
+        `/api/shoot-context?source=${encodeURIComponent(source)}`,
+      ).then((r) => (r.ok ? r.json() : null));
+      if (ctx?.insideShoot && ctx.siblings?.favorites?.path) {
+        favPath = ctx.siblings.favorites.path;
+      }
+    } catch {
+      /* fall through with legacy construction */
+    }
+    loadSource(favPath);
   });
 }
 
