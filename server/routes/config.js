@@ -21,6 +21,7 @@ configRoutes.put('/config', (req, res) => {
   // Only allow known config keys
   const allowed = [
     'libraryRoot',
+    'namingScheme',
     'thumbSize',
     'defaultSource',
     'recentShoots',

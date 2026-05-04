@@ -3,6 +3,31 @@
 All notable changes to Shelf will be documented here.
 Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [1.4.3] — 2026-05-04
+
+Naming-scheme preset + smart sort modal. Set the way you like to name shoots once; Shelf pre-fills the new-shoot input and recognizes existing matching shoots automatically.
+
+### Added
+
+- **Naming-scheme preset** in the File menu → "Set Naming Scheme…". Define a template like `{YYYY} - {MM} - {NAME}`. Tokens supported: `{YYYY}`, `{MM}` (zero-padded), `{NAME}` (cursor anchor). Live preview updates as you type. Save persists to `config.json`. Leave blank to disable.
+- **Smart sort modal pre-fill.** When a scheme is set, the new-shoot name input opens with the rendered prefix already filled (e.g. `2026 - 05 - `) and the cursor positioned at the end. Type the shoot name and hit Sort.
+- **Smart auto-select for merge mode.** When sorting from a fresh card AND the library has existing shoots whose names start with the rendered prefix:
+  - Exactly one match → merge mode auto-selected, that shoot pre-picked. Just hit Sort.
+  - Multiple matches → merge mode auto-expanded, you pick from the matching set.
+  - Zero matches → "Create as new shoot" mode with prefix pre-filled.
+- **Scheme hint** under the new-shoot name input: "Scheme: 2026 - 05 - <Shoot Name> — change in File → Set Naming Scheme…"
+
+### Under the hood
+
+- Pure `renderTemplate(tpl, date)` helper produces `{full, prefix, preview}` triple. Used by both the settings modal's live preview and the sort modal's pre-fill + auto-select logic.
+- `/api/config` allow-list extended with `namingScheme`. No new API routes.
+- Sonnet QA caught a focus-trap edge case (toggling from auto-merge back to new-shoot mode lost cursor positioning) — fixed before ship.
+- 76 server tests pass, lint clean.
+
+### Coming next
+
+- v1.5+ — jagged grid (per-image aspect ratio), full eager-loading, optional `{DD}` token + multiple-preset support if it surfaces
+
 ## [1.4.2] — 2026-05-04
 
 Cleaner subfolder casing for new shoots.

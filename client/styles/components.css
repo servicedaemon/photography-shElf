@@ -583,6 +583,17 @@
   margin-bottom: 8px;
 }
 
+/* Naming-scheme hint shown beneath the new-shoot name input. Same family
+   as the merge hint — consistent "this is a tip, not a control" tone. */
+.sort-scheme-hint,
+.naming-scheme-preview {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.04em;
+  color: var(--ink-faint);
+  margin-top: 6px;
+}
+
 /* Scrollable list of pickable shoots. Caps at ~200px so the modal stays
    bounded on a 50-shoot library; type-ahead can ride v1.4 if libraries
    grow past that. */

@@ -106,6 +106,17 @@ export async function buildMenu({ mainWindow, isDev, serverPort }) {
           label: 'Set Library Root…',
           click: () => setLibraryRoot(mainWindow, serverPort),
         },
+        {
+          label: 'Set Naming Scheme…',
+          click: () => {
+            // Renderer owns the modal — dispatch and let main.js show it.
+            // The renderer reads + writes /api/config directly; no need for
+            // an Electron-native dialog here.
+            mainWindow.webContents.executeJavaScript(
+              `window.dispatchEvent(new CustomEvent('shelf:open-naming-scheme'))`,
+            );
+          },
+        },
         { type: 'separator' },
         isMac ? { role: 'close' } : { role: 'quit' },
       ],

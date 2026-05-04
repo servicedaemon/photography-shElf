@@ -97,7 +97,121 @@ document.addEventListener('DOMContentLoaded', async () => {
     const p = e.detail?.path;
     if (p) showToast(`Library root: ${p}`, 'success');
   });
+
+  // File menu → "Set Naming Scheme…" — renderer owns this modal so we can
+  // show a live preview as the user edits the template.
+  window.addEventListener('shelf:open-naming-scheme', () => {
+    showNamingSchemeModal();
+  });
 });
+
+// Render a naming-scheme template by substituting date tokens.
+// `{YYYY}` → 4-digit year, `{MM}` → zero-padded month. `{NAME}` is
+// preserved as a placeholder (the modal pre-fills the input with the
+// resolved string sans `{NAME}` plus any trailing separator stripped, so
+// the user types directly into the rendered prefix).
+//
+// renderTemplate('{YYYY} - {MM} - {NAME}', new Date('2026-05-04'))
+//   → { full: '2026 - 05 - {NAME}', prefix: '2026 - 05 - ', preview: '2026 - 05 - <Shoot Name>' }
+function renderTemplate(tpl, date = new Date()) {
+  if (typeof tpl !== 'string' || !tpl) return null;
+  const yyyy = String(date.getFullYear());
+  const mm = String(date.getMonth() + 1).padStart(2, '0');
+  const full = tpl.replace(/\{YYYY\}/g, yyyy).replace(/\{MM\}/g, mm);
+  // The "prefix" is everything before {NAME}, with the leading sep
+  // characters AFTER {NAME} stripped only if {NAME} is at the end of the
+  // template. For "{YYYY} - {MM} - {NAME}" → prefix = "2026 - 05 - ".
+  // For free-form templates without {NAME} (e.g. "{YYYY}-{MM}-Shoot"),
+  // prefix is the full rendered string and the user just confirms it.
+  const namePos = full.indexOf('{NAME}');
+  const prefix = namePos >= 0 ? full.slice(0, namePos) : full;
+  const preview = full.replace(/\{NAME\}/g, '<Shoot Name>');
+  return { full, prefix, preview };
+}
+
+function showNamingSchemeModal() {
+  const overlay = document.getElementById('modal-overlay');
+  // Read current value, render initial preview, build the modal.
+  fetch('/api/config')
+    .then((r) => (r.ok ? r.json() : {}))
+    .then((cfg) => {
+      const current = cfg.namingScheme || '';
+      overlay.innerHTML = `
+        <div class="modal" style="max-width:520px">
+          <h2>Set Naming Scheme</h2>
+          <p>Pre-fill new shoot names with a template. Tokens: <code>{YYYY}</code>, <code>{MM}</code>, <code>{NAME}</code>. Leave blank to disable.</p>
+          <input type="text" class="modal-input" id="naming-scheme-input" placeholder="{YYYY} - {MM} - {NAME}" autocomplete="off" />
+          <p class="naming-scheme-preview" id="naming-scheme-preview"></p>
+          <div class="modal-buttons">
+            <button class="btn btn-muted" id="naming-cancel">Cancel</button>
+            <button class="btn btn-primary" id="naming-save">Save</button>
+          </div>
+        </div>
+      `;
+      overlay.classList.add('active');
+
+      const input = document.getElementById('naming-scheme-input');
+      const previewEl = document.getElementById('naming-scheme-preview');
+      input.value = current;
+      const updatePreview = () => {
+        const tpl = input.value.trim();
+        if (!tpl) {
+          previewEl.textContent = 'Disabled — new-shoot name input will be empty.';
+          return;
+        }
+        const r = renderTemplate(tpl);
+        if (!r) {
+          previewEl.textContent = '';
+          return;
+        }
+        previewEl.textContent = `Example: ${r.preview}`;
+      };
+      updatePreview();
+      input.addEventListener('input', updatePreview);
+      setTimeout(() => {
+        input.focus();
+        input.setSelectionRange(input.value.length, input.value.length);
+      }, 0);
+
+      const close = () => {
+        overlay.classList.remove('active');
+        document.removeEventListener('keydown', keyHandler);
+      };
+      const save = async () => {
+        const val = input.value.trim();
+        try {
+          const r = await fetch('/api/config', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ namingScheme: val }),
+          });
+          if (!r.ok) throw new Error(`HTTP ${r.status}`);
+          close();
+          showToast(
+            val ? `Naming scheme: ${val}` : 'Naming scheme cleared',
+            'success',
+          );
+        } catch (e) {
+          showToast('Failed to save: ' + e.message, 'error');
+        }
+      };
+      const keyHandler = (e) => {
+        if (e.key === 'Escape') {
+          e.preventDefault();
+          close();
+        } else if (e.key === 'Enter' && document.activeElement === input) {
+          e.preventDefault();
+          save();
+        }
+      };
+      document.addEventListener('keydown', keyHandler);
+      document.getElementById('naming-cancel').addEventListener('click', close);
+      document.getElementById('naming-save').addEventListener('click', save);
+      overlay.addEventListener('click', (e) => {
+        if (e.target === overlay) close();
+      });
+    });
+}
 
 // --- Header ---
 
@@ -693,13 +807,18 @@ async function handleSort() {
   }
 
   // Read the configured library root so the modal can show where files
-  // will actually land.
+  // will actually land. Also pull the optional naming-scheme template —
+  // when set, the modal pre-fills the new-shoot name input with the
+  // rendered prefix and runs the smart-auto-select logic against existing
+  // shoots whose names already start with that prefix.
   let libraryRoot = '';
+  let namingScheme = '';
   try {
     const cfgRes = await fetch('/api/config');
     if (cfgRes.ok) {
       const cfg = await cfgRes.json();
       libraryRoot = cfg.libraryRoot || '';
+      namingScheme = cfg.namingScheme || '';
     }
   } catch {
     /* fall through */
@@ -729,6 +848,7 @@ async function handleSort() {
     shootContext,
     libraryRoot,
     libraryShoots,
+    namingScheme,
   });
   if (!decision) return;
 
@@ -781,7 +901,13 @@ async function doSortMerge(targetShootPath, targetName) {
 
 // The unified sort dialog. Returns { mode: 'in-place' } | { mode: 'new', name }
 // | null (cancelled).
-function showSortModal({ counts, shootContext, libraryRoot, libraryShoots = [] }) {
+function showSortModal({
+  counts,
+  shootContext,
+  libraryRoot,
+  libraryShoots = [],
+  namingScheme = '',
+}) {
   return new Promise((resolve) => {
     const overlay = document.getElementById('modal-overlay');
     const { keeps, favs, rejects, unsorted, markedTotal } = counts;
@@ -792,6 +918,26 @@ function showSortModal({ counts, shootContext, libraryRoot, libraryShoots = [] }
     // Inside an existing shoot, "in place" already does the right thing.
     const canMerge = !insideShoot && libraryShoots.length > 0;
     let selectedMergeTarget = null; // { name, path }
+
+    // Naming-scheme pre-fill + smart auto-select. When the user has
+    // configured a template like "{YYYY} - {MM} - {NAME}", we resolve it
+    // for today's date and:
+    //   1. Pre-fill the new-shoot name input with the rendered prefix
+    //      ("2026 - 05 - "), cursor positioned at end so they type
+    //      directly into the rendered string.
+    //   2. If exactly one existing shoot's name starts with that prefix,
+    //      auto-select merge mode pre-pointing at that shoot.
+    //   3. If multiple match, default to merge mode but leave the user
+    //      to pick — picking the wrong one would scatter their photos.
+    const tpl = renderTemplate(namingScheme);
+    const schemePrefix = tpl ? tpl.prefix : '';
+    let autoMatchedShoot = null; // single-match → auto-select on open
+    let autoMultiMatch = false; // multi-match → expand merge mode, no pick
+    if (canMerge && schemePrefix) {
+      const matches = libraryShoots.filter((s) => s.name.startsWith(schemePrefix));
+      if (matches.length === 1) autoMatchedShoot = matches[0];
+      else if (matches.length > 1) autoMultiMatch = true;
+    }
 
     while (overlay.firstChild) overlay.removeChild(overlay.firstChild);
 
@@ -842,6 +988,12 @@ function showSortModal({ counts, shootContext, libraryRoot, libraryShoots = [] }
     nameInput.placeholder = 'Shoot name';
     nameInput.autocomplete = 'off';
     nameWrap.appendChild(nameInput);
+    if (tpl) {
+      const schemeHint = document.createElement('p');
+      schemeHint.className = 'sort-scheme-hint';
+      schemeHint.textContent = `Scheme: ${tpl.preview} — change in File → Set Naming Scheme…`;
+      nameWrap.appendChild(schemeHint);
+    }
     modal.appendChild(nameWrap);
 
     // Merge mode (only when canMerge): a second checkbox below the first.
@@ -940,6 +1092,18 @@ function showSortModal({ counts, shootContext, libraryRoot, libraryShoots = [] }
       // the other so the user is never in an ambiguous "both checked" state.
       if (check.checked && mergeCheck) mergeCheck.checked = false;
       updateMode();
+      // When the user toggles back into new-shoot mode (e.g. after auto-
+      // select put them in merge), focus the name input and drop the
+      // cursor at the end of any pre-filled scheme prefix so they can
+      // type the shoot name immediately.
+      if (check.checked) {
+        setTimeout(() => {
+          nameInput.focus();
+          if (schemePrefix) {
+            nameInput.setSelectionRange(schemePrefix.length, schemePrefix.length);
+          }
+        }, 0);
+      }
     });
     if (mergeCheck) {
       mergeCheck.addEventListener('change', () => {
@@ -950,8 +1114,39 @@ function showSortModal({ counts, shootContext, libraryRoot, libraryShoots = [] }
         updateMode();
       });
     }
+
+    // Apply naming-scheme behaviors AFTER all checkboxes/wraps are built
+    // but BEFORE updateMode() runs — so the initial render reflects
+    // pre-fill + auto-select correctly without an extra repaint.
+    if (tpl && schemePrefix) {
+      // Pre-fill the new-shoot name input. If user clicks "Create as new
+      // shoot," they see "2026 - 05 - " ready to type into.
+      nameInput.value = schemePrefix;
+    }
+    let autoFocusNameInput = check.checked;
+    if (canMerge && (autoMatchedShoot || autoMultiMatch) && mergeCheck) {
+      // Smart auto-select: surface merge mode on open. If exactly one
+      // existing shoot matches the scheme prefix, pre-pick it. If
+      // multiple, expand merge mode but leave selection to the user.
+      mergeCheck.checked = true;
+      check.checked = false;
+      if (autoMatchedShoot) {
+        selectedMergeTarget = { name: autoMatchedShoot.name, path: autoMatchedShoot.path };
+      }
+      if (renderShootPicker) renderShootPicker();
+      autoFocusNameInput = false;
+    }
     updateMode();
-    if (check.checked) setTimeout(() => nameInput.focus(), 0);
+    // Focus: when pre-fill is active, drop cursor at the end of the
+    // pre-filled prefix so the user can just start typing the shoot name.
+    if (autoFocusNameInput) {
+      setTimeout(() => {
+        nameInput.focus();
+        if (schemePrefix) {
+          nameInput.setSelectionRange(schemePrefix.length, schemePrefix.length);
+        }
+      }, 0);
+    }
 
     const btns = document.createElement('div');
     btns.className = 'modal-buttons';
