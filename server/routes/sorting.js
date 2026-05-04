@@ -95,10 +95,14 @@ sortingRoutes.post('/sort', async (req, res) => {
     config.libraryRoot || path.join(os.homedir(), 'Pictures', 'Shelf');
 
   const shootDir = path.join(libraryRoot, safeName);
-  const unsortedDir = path.join(shootDir, 'unsorted');
-  const keepsDir = path.join(shootDir, 'keeps');
-  const favoritesDir = path.join(shootDir, 'favorites');
-  const rejectsDir = path.join(shootDir, 'rejects');
+  // Uppercase subfolder names (v1.4.2+). The forgiving normalizer accepts
+  // any case + whitespace, so existing shoots with lowercase subfolders
+  // continue to work; new shoots are created with uppercase for visual
+  // distinction in Finder + consistency.
+  const unsortedDir = path.join(shootDir, 'UNSORTED');
+  const keepsDir = path.join(shootDir, 'KEEPS');
+  const favoritesDir = path.join(shootDir, 'FAVORITES');
+  const rejectsDir = path.join(shootDir, 'REJECTS');
 
   try {
     fs.mkdirSync(unsortedDir, { recursive: true });
@@ -457,9 +461,13 @@ sortingRoutes.post('/move-to-shoot', async (req, res) => {
     return res.status(400).json({ error: 'dest must have existingPath or newShootName' });
   }
 
-  // Final target is <destFolder>/unsorted/
-  const unsortedDir = path.join(destFolder, 'unsorted');
-  fs.mkdirSync(unsortedDir, { recursive: true });
+  // Final target — reuse any existing on-disk variant of the unsorted
+  // role (matches "unsorted", "Unsorted", "UNSORTED", "unmarked", etc.
+  // via the forgiving normalizer). When the destination is brand-new,
+  // create with v1.4.2's canonical UNSORTED uppercase.
+  const existingUnsorted = findExistingSubfolder(destFolder, 'unsorted');
+  const unsortedDir = existingUnsorted || path.join(destFolder, 'UNSORTED');
+  if (!existingUnsorted) fs.mkdirSync(unsortedDir, { recursive: true });
 
   // Move files
   const state = getState(sourcePath);
@@ -661,10 +669,10 @@ sortingRoutes.post('/sort-in-place', (req, res) => {
   }
 
   const targets = {
-    keep: findOrMakeSub('keeps', 'keeps'),
-    favorite: findOrMakeSub('favorites', 'Favorites'),
-    reject: findOrMakeSub('rejects', 'rejects'),
-    unsorted: findOrMakeSub('unsorted', 'unsorted'),
+    keep: findOrMakeSub('keeps', 'KEEPS'),
+    favorite: findOrMakeSub('favorites', 'FAVORITES'),
+    reject: findOrMakeSub('rejects', 'REJECTS'),
+    unsorted: findOrMakeSub('unsorted', 'UNSORTED'),
   };
 
   const state = getState(sourcePath);

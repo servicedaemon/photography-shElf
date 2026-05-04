@@ -3,6 +3,28 @@
 All notable changes to Shelf will be documented here.
 Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [1.4.2] — 2026-05-04
+
+Cleaner subfolder casing for new shoots.
+
+### Changed
+
+- **New shoots create UPPERCASE subfolders.** Sorting a card now produces `<shoot>/UNSORTED`, `KEEPS`, `FAVORITES`, `REJECTS` instead of mixed lowercase. Visually distinct in Finder, easier to scan in column view, consistent across the four roles. Existing shoots with lowercase subfolders continue to work — the forgiving subfolder matcher (introduced in v1.3.2) recognizes any casing variant via `normalizeSubfolderRole`.
+- **Sort modal explainer** updated to match: "Creates a new shoot folder under … with UNSORTED/KEEPS/FAVORITES/REJECTS subfolders."
+- **README** updated to reflect the new convention.
+
+### Under the hood
+
+- `/api/sort` creates uppercase shoot subfolders.
+- `/api/sort-in-place` `findOrMakeSub` preferred-case params now uppercase. When the route encounters an existing shoot with lowercase folders, it reuses them (preserves on-disk casing within a shoot via the normalizer match). New folders within an existing shoot get uppercase.
+- `/api/move-to-shoot` uses `findExistingSubfolder` to reuse any on-disk variant of the unsorted folder; falls back to creating `UNSORTED` only when the destination is brand new.
+- Lint clean, 76 server tests pass.
+- Sonnet QA caught 3 polish items (UI explainer + README casing, redundant mkdirSync) — all fixed before ship.
+
+### Coming next
+
+- v1.4.3 — naming-scheme preset (`YYYY - MM - <name>` template) + smart sort modal that auto-selects existing matching shoots
+
 ## [1.4.1] — 2026-05-04
 
 Action-bar simplification. The buttons that show up while you're culling are now driven by what's actually possible right now, not by a detected workflow stage — and the duplicative "Promote to Favorites" button is gone.

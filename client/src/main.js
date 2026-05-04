@@ -927,7 +927,7 @@ function showSortModal({ counts, shootContext, libraryRoot, libraryShoots = [] }
           ? `Routes marked images into "${selectedMergeTarget.name}"'s keeps/favorites/rejects/unsorted folders.`
           : 'Pick a shoot below — marked images will route into its keeps/favorites/rejects/unsorted folders.';
       } else if (newShoot) {
-        explainer.textContent = `Creates a new shoot folder under ${libraryRootDisplay} with unsorted/keeps/favorites/rejects subfolders. Change the location in File → Set Library Root…`;
+        explainer.textContent = `Creates a new shoot folder under ${libraryRootDisplay} with UNSORTED/KEEPS/FAVORITES/REJECTS subfolders. Change the location in File → Set Library Root…`;
       } else {
         // shootContext is guaranteed here: the new-shoot checkbox is forced-on
         // and disabled when shootContext is null, so this branch can't run.
