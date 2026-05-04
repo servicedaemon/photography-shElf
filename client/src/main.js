@@ -9,7 +9,7 @@ import { initFilters } from './filters.js';
 import { initSidebar } from './sidebar.js';
 import { initActions } from './actions.js';
 import { initUndo, showToast } from './undo.js';
-import { initStage } from './stage.js';
+import { initStage, getStage } from './stage.js';
 import { createElf } from './elf.js';
 import { setThumbSize, setTheme, getTheme } from './theme.js';
 import { initMarkQueue } from './mark-queue.js';
@@ -62,7 +62,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   bus.on('action:sort', handleSort);
   bus.on('action:convert', handleConvert);
   bus.on('action:open-editor', handleOpenEditor);
-  bus.on('action:promote-favorites', handlePromoteFavorites);
   bus.on('action:move-to-shoot', handleMoveToShoot);
   bus.on(EVENTS.REFRESH, refresh);
 
@@ -149,9 +148,18 @@ function renderHeader() {
       stackStatsHtml = `<div class="stack-stats" title="Photos taken within 5 seconds of each other, clustered into stacks.\nS: toggle current · Shift+S: all\nShift+mark: apply to whole stack">${stacks.length} ${stacks.length === 1 ? 'stack' : 'stacks'} · ${frames} frames</div>`;
     }
 
+    const stage = getStage();
+    const stageTitle = {
+      CULL: 'Cull — sorting unsorted raws into keep/reject',
+      PICKS: 'Picks — promoting keeps to favorites',
+      FINAL: 'Final — browsing your selects',
+    }[stage];
+    const stagePillHtml = `<span class="stage-pill stage-${stage.toLowerCase()}" title="${stageTitle}">${stage}</span>`;
+
     header.innerHTML = `
       <div class="elf-corner" id="header-elf"></div>
       <h1>Shelf</h1>
+      ${stagePillHtml}
       ${stackStatsHtml}
       <div class="header-spacer"></div>
       <div class="thumb-slider">
@@ -1398,69 +1406,6 @@ async function handleOpenEditor() {
   }
 }
 
-async function handlePromoteFavorites() {
-  const images = getImages();
-  const favs = images.filter((i) => (i.status || 'unmarked') === 'favorite');
-
-  if (favs.length === 0) {
-    showToast('No favorites marked', 'error');
-    return;
-  }
-
-  const confirmed = await showConfirmModal(
-    'Promote Favorites',
-    `Move ${favs.length} favorite image${favs.length !== 1 ? 's' : ''} into the Favorites subfolder?`,
-  );
-  if (!confirmed) return;
-
-  // Snapshot source so we can bail if the user navigated away mid-request.
-  // Passing the absolute source path to /api/folder-mark + /api/promote-favorites
-  // works for both nested (`<shoot>/keeps/`) and flat (`Keeps - MM-YYYY - Name/`)
-  // layouts — the leaf-name split that worked under flat-only is gone.
-  const initialSource = source;
-
-  try {
-    // Surface non-2xx responses as throws so the catch below shows a real
-    // error toast — fetch() only throws on network failure, not status.
-    await Promise.all(
-      favs.map(async (img) => {
-        const r = await fetch(`/api/folder-mark`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ source: initialSource, filename: img.filename, status: 'favorite' }),
-        });
-        if (!r.ok) throw new Error(`mark ${img.filename} failed (${r.status})`);
-      }),
-    );
-
-    const res = await fetch(`/api/promote-favorites`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ source: initialSource }),
-    });
-    if (!res.ok) {
-      const errText = await res.text().catch(() => res.statusText);
-      throw new Error(`promote failed (${res.status}): ${errText}`);
-    }
-    const data = await res.json();
-
-    // User exited the shoot or loaded a different one while we were working.
-    // Swallow the result rather than showing a stuck bridge against wrong state.
-    if (source !== initialSource) return;
-
-    showToast(`Promoted ${data.moved} image${data.moved !== 1 ? 's' : ''} to Favorites`, 'success');
-    if (window.shelf && window.shelf.showNotification) {
-      window.shelf.showNotification('Promoted to Favorites', `Moved ${data.moved} heroes`);
-    }
-    // showPromoteBridge expects a folder display label — derive it from source.
-    const displayName = initialSource.split(/[/\\]/).slice(-2).join('/');
-    showPromoteBridge(data.moved, displayName);
-  } catch (e) {
-    if (source !== initialSource) return;
-    showToast('Promote failed: ' + e.message, 'error');
-  }
-}
-
 async function handleMoveToShoot() {
   const filenames = getSelectedFilenames();
   if (filenames.length === 0) {
@@ -1630,59 +1575,6 @@ function showSortBridge(moved, keepsPath, opts = {}) {
   });
 }
 
-function showPromoteBridge(count, _folderName) {
-  // _folderName is reserved for future use by the bridge UI but not currently
-  // displayed — kept in the signature so callers don't need to change later.
-  const overlay = document.getElementById('modal-overlay');
-  overlay.innerHTML = `
-    <div class="modal" style="text-align:center">
-      <div class="bridge-elf-host" style="display:flex;justify-content:center;margin-bottom:14px"></div>
-      <h2>Promoted ${count} to Favorites</h2>
-      <p>Your heroes are saved in the Favorites subfolder.</p>
-      <div class="modal-buttons">
-        <button class="btn btn-muted" id="bridge-done">Done</button>
-        <button class="btn btn-muted" id="bridge-keep-reviewing">Keep Reviewing</button>
-        <button class="btn btn-primary" id="bridge-open-favorites">Open Favorites</button>
-      </div>
-    </div>
-  `;
-  overlay.classList.add('active');
-  const promoteElf = overlay.querySelector('.bridge-elf-host');
-  if (promoteElf) createElf(promoteElf, 'waving', 6);
-
-  const close = () => overlay.classList.remove('active');
-
-  document.getElementById('bridge-done').addEventListener('click', () => {
-    close();
-    mode = 'idle';
-    source = '';
-    renderHeader();
-    showEmptyState();
-  });
-  document.getElementById('bridge-keep-reviewing').addEventListener('click', () => {
-    close();
-    bus.emit(EVENTS.REFRESH);
-  });
-  document.getElementById('bridge-open-favorites').addEventListener('click', async () => {
-    close();
-    // Resolve the actual favorites sibling via shoot-context so we open
-    // the user's on-disk variant (e.g. "Favorites " with a trailing space)
-    // rather than a hardcoded "/Favorites" path that may not exist.
-    let favPath = source + '/Favorites';
-    try {
-      const ctx = await fetch(
-        `/api/shoot-context?source=${encodeURIComponent(source)}`,
-      ).then((r) => (r.ok ? r.json() : null));
-      if (ctx?.insideShoot && ctx.siblings?.favorites?.path) {
-        favPath = ctx.siblings.favorites.path;
-      }
-    } catch {
-      /* fall through with legacy construction */
-    }
-    loadSource(favPath);
-  });
-}
-
 // --- Refresh (after undo, or after a mark-sync rollback) ---
 
 async function refresh() {
@@ -1800,48 +1692,6 @@ function showDnglabMissingModal(hint) {
 
     overlay.addEventListener('click', (e) => {
       if (e.target === overlay) close();
-    });
-  });
-}
-
-function showConfirmModal(title, message) {
-  return new Promise((resolve) => {
-    const overlay = document.getElementById('modal-overlay');
-    overlay.innerHTML = `
-      <div class="modal">
-        <h2>${title}</h2>
-        <p>${message.replace(/\n/g, '<br>')}</p>
-        <div class="modal-buttons">
-          <button class="btn btn-muted" id="modal-cancel">Cancel</button>
-          <button class="btn btn-primary" id="modal-confirm">Confirm</button>
-        </div>
-      </div>
-    `;
-    overlay.classList.add('active');
-
-    // Define keyboard handler first so we can remove it from close().
-    // Previously if the modal was dismissed via overlay click, this handler
-    // leaked and every subsequent Escape press hit a stale listener.
-    const keyHandler = (e) => {
-      if (e.key === 'Enter') {
-        e.preventDefault();
-        close(true);
-      } else if (e.key === 'Escape') {
-        e.preventDefault();
-        close(false);
-      }
-    };
-    const close = (value) => {
-      document.removeEventListener('keydown', keyHandler);
-      overlay.classList.remove('active');
-      resolve(value);
-    };
-    document.addEventListener('keydown', keyHandler);
-
-    document.getElementById('modal-confirm').addEventListener('click', () => close(true));
-    document.getElementById('modal-cancel').addEventListener('click', () => close(false));
-    overlay.addEventListener('click', (e) => {
-      if (e.target === overlay) close(false);
     });
   });
 }

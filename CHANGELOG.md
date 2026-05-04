@@ -3,6 +3,35 @@
 All notable changes to Shelf will be documented here.
 Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [1.4.1] — 2026-05-04
+
+Action-bar simplification. The buttons that show up while you're culling are now driven by what's actually possible right now, not by a detected workflow stage — and the duplicative "Promote to Favorites" button is gone.
+
+### Changed
+
+- **Action bar shows buttons based on present state, not workflow stage.** Pre-1.4.1 the bar gated each button on `stage === 'CULL' / 'PICKS' / 'FINAL'` — useful when stages were teaching scaffolding, prescriptive once you knew the flow. Now: "Sort to Folders" appears whenever there are marks, "Convert to DNG" whenever there are convertible raws, "Edit Favorites in Lightroom" whenever a Favorites sibling exists. The welcome screen workflow chip row still teaches the flow as orientation.
+
+### Removed
+
+- **"Promote to Favorites" button + endpoints.** The Promote action was a special-case subset of what Sort already does — both move favorite-marked files to the destination favorites folder, but Sort also routes any other marks at the same time. Promote also kept its own parallel mark-state in `.favorites-state.json` next to the photos, which duplicated the per-source state file in `~/.shelf/states/`. Cutting the redundant path:
+  - One button gone from the action bar
+  - `/api/promote-favorites` and `/api/folder-mark` endpoints removed
+  - `.favorites-state.json` files no longer written (existing ones are harmless and ignored)
+  - `handlePromoteFavorites`, `showPromoteBridge`, `showConfirmModal` (only caller) deleted from client
+  - `bus.on('action:promote-favorites', ...)` wiring removed
+  
+  When you mark favorites mid-cull and want to move them to the Favorites folder, just hit Sort — same end state, fewer concepts to learn.
+
+### Under the hood
+
+- 76 server tests still pass. Lint clean.
+- Sonnet QA caught the action-bar refactor edge cases ahead of ship — most surfaced as "no problem" once verified.
+
+### Coming next
+
+- v1.4.2 — uppercase subfolder naming (UNSORTED / KEEPS / FAVORITES / REJECTS / EDITED) for new shoots
+- v1.4.3 — naming-scheme preset (`YYYY - MM - <name>` template) + smart sort modal that auto-selects an existing matching shoot
+
 ## [1.4.0] — 2026-05-04
 
 UX cleanup. Two small wins from the v1.3.x feedback dump.
