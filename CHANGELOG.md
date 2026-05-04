@@ -3,6 +3,34 @@
 All notable changes to Shelf will be documented here.
 Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [1.3.4] — 2026-05-04
+
+Sort progress feedback. The sort operation used to be a 5-30 second silent freeze; now you can see exactly how far along it is, and the operation is interruptible without aborting.
+
+### Added
+
+- **Real-time progress modal during sort.** Click Sort and the modal transitions immediately into a progress state with a smooth amber-gradient bar and an `N of M` counter. No filename scrolling — that pattern (used by Lightroom and Photo Mechanic) is visual noise on sequential CR3 names. A calm count + smooth bar is more dignified at the tens-of-seconds scale.
+- **Escape allowed mid-sort.** Pressing Escape dismisses the modal but the sort continues server-side — closing the modal does NOT abort. A toast confirms: "Sort continues in the background — done when grid refreshes." The grid auto-updates when complete.
+- **Renamed count surfaced in bridge modal.** When `uniqueDest` auto-suffixes a file (multi-camera shoots commonly produce `IMG_1234.CR3` from both bodies), the bridge now shows: "N filenames renamed (duplicate names from another card)."
+- **Server: `?stream=1` opt-in branch on `/api/sort`** that emits SSE events: `data: {processed,total}\n\n` per file, ends with `event: done\ndata: {final}`. Default behavior (no query param) preserves the original synchronous JSON response.
+
+### Changed
+
+- **Modal lifecycle is now flicker-free.** Old flow: sort modal closes → fetch awaits → bridge modal opens. There was a flash of empty overlay between transitions. New flow: same overlay element, content swaps in-place from sort modal → progress modal → bridge modal.
+- **Smart bridge-after-Escape.** If the user dismissed the modal mid-sort and the sort completes later, the bridge does NOT pop on top of whatever they're doing now. Instead: silent grid refresh + a calm completion toast.
+
+### Fixed (sonnet code-review catches before ship)
+
+- **Escape keydown listener leak on normal completion.** The progress modal's Escape handler was attached to `document` and only removed on dismiss — not on the bridge transition path. A leftover listener could fire on the next Escape press anywhere in the app. Now: handler is module-scoped and detached on every hide path.
+- **Bridge appearing after dismiss.** Originally the bridge would pop even if the user had Escaped out of the progress modal — jarring. Now: dismissed flag is checked, silent toast replaces bridge in that case.
+
+### Implementation notes
+
+- Stream parser is ~30 lines, no library. Splits on `\n\n`, walks lines for `event:` / `data:` prefixes.
+- DOM updates are throttled via `requestAnimationFrame` so a 500-file sort animates smoothly even with per-file SSE ticks.
+- 76 server tests pass, lint baseline clean.
+- Sonnet-paired through both design and implementation. Two QA-flagged Important issues (listener leak, bridge-after-Escape) were fixed before ship.
+
 ## [1.3.3] — 2026-05-04
 
 Real-shoot bug fixes from a 250-photo session that crashed Shelf at ~80%. Memory leak fix is the headline; everything else is the cluster of stack-related weirdness Ava ran into while culling.

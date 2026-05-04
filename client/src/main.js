@@ -904,33 +904,205 @@ async function doSortInPlace(ctx) {
   }
 }
 
+// Sort progress modal. The Escape key handler lives in module scope so
+// hideSortProgressModal can detach it on BOTH paths — user-dismiss AND
+// normal completion — preventing a leaked document listener that would
+// otherwise fire on the next Escape press anywhere.
+let sortProgressKeyHandler = null;
+// Set true when the user dismissed the modal mid-sort. The stream consumer
+// reads this on completion to decide between "show bridge" (still watching)
+// and "silent refresh + toast" (already moved on).
+let sortProgressDismissed = false;
+
+function showSortProgressModal() {
+  const overlay = document.getElementById('modal-overlay');
+  sortProgressDismissed = false;
+  // textContent-equivalent: only literal HTML in the template, no
+  // interpolated user data.
+  overlay.innerHTML = `
+    <div class="modal sort-progress-modal" style="text-align:center">
+      <h2>Sorting…</h2>
+      <p class="sort-progress-count" id="sort-progress-count">Preparing</p>
+      <progress class="sort-progress-bar" id="sort-progress-bar" value="0" max="100"></progress>
+      <p class="sort-progress-hint">You can press <kbd>Esc</kbd> — sorting will finish in the background.</p>
+    </div>
+  `;
+  overlay.classList.add('active');
+
+  // Detach any previously-attached handler before adding a new one. Belt
+  // and suspenders against double-attach if showSortProgressModal somehow
+  // gets called twice.
+  if (sortProgressKeyHandler) {
+    document.removeEventListener('keydown', sortProgressKeyHandler);
+    sortProgressKeyHandler = null;
+  }
+
+  sortProgressKeyHandler = (e) => {
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      sortProgressDismissed = true;
+      hideSortProgressModal();
+      showToast('Sort continues in the background — done when grid refreshes.', 'success');
+    }
+  };
+  document.addEventListener('keydown', sortProgressKeyHandler);
+}
+
+function updateSortProgressModal(processed, total) {
+  const overlay = document.getElementById('modal-overlay');
+  const bar = overlay.querySelector('#sort-progress-bar');
+  const count = overlay.querySelector('#sort-progress-count');
+  if (!bar || !count) return; // modal was dismissed
+  bar.value = total > 0 ? Math.round((processed / total) * 100) : 0;
+  bar.max = 100;
+  count.textContent = `${processed} of ${total}`;
+}
+
+function hideSortProgressModal() {
+  const overlay = document.getElementById('modal-overlay');
+  // Detach the keydown listener on every hide path — both user-dismiss
+  // (Escape) and normal completion (stream ended → bridge transition).
+  // Without this, a stale handler would fire on next Escape anywhere,
+  // re-running hideSortProgressModal + the toast in the wrong context.
+  if (sortProgressKeyHandler) {
+    document.removeEventListener('keydown', sortProgressKeyHandler);
+    sortProgressKeyHandler = null;
+  }
+  overlay.classList.remove('active');
+  overlay.innerHTML = '';
+}
+
+function sortProgressModalOpen() {
+  const overlay = document.getElementById('modal-overlay');
+  return !!overlay.querySelector('.sort-progress-modal');
+}
+
 async function doSortNewBundle(name) {
+  // Show the progress modal IMMEDIATELY so the user sees something
+  // happening on click — not after the first SSE byte arrives.
+  showSortProgressModal();
+
   try {
-    const res = await fetch('/api/sort', {
+    const res = await fetch('/api/sort?stream=1', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name, source }),
     });
-    const data = await res.json();
+    if (!res.ok) {
+      // Non-2xx fell through before any SSE event — read the body and toast.
+      const body = await res.text().catch(() => res.statusText);
+      hideSortProgressModal();
+      showToast('Sort failed: ' + body, 'error');
+      return;
+    }
+
+    const data = await consumeSortStream(res);
+    if (!data) {
+      // Stream ended without `done` — the sort either failed mid-way or
+      // the connection died. The modal is still showing (if not dismissed);
+      // hide it and toast.
+      hideSortProgressModal();
+      showToast('Sort interrupted — check the destination folder.', 'error');
+      return;
+    }
+
     if (data.errors) showToast(`${data.errors.length} files had errors`, 'error');
 
-    // The server now returns the keeps subfolder path directly — no
-    // client-side reconstruction needed (which was always brittle when
-    // the server's layout convention changed).
     const keepsPath = data.keepsDir || null;
+    const total = Object.values(data.moved).reduce((a, b) => a + b, 0);
 
     // Refresh the source grid so marks clear (source is now empty for the
     // sorted items — everything was moved out).
     bus.emit(EVENTS.REFRESH);
 
-    showSortBridge(data.moved, keepsPath);
+    // If the user dismissed the progress modal mid-sort, they explicitly
+    // opted out of the modal flow — popping a bridge on top of whatever
+    // they're doing now would be jarring. Silent refresh + a calm toast
+    // is better. The bridge stays for users who watched it through.
+    // Detach the progress modal's keydown listener whichever path we take
+    // next — both the bridge transition and the silent-success path need
+    // to clear it so a later Escape doesn't fire the leftover handler.
+    if (sortProgressKeyHandler) {
+      document.removeEventListener('keydown', sortProgressKeyHandler);
+      sortProgressKeyHandler = null;
+    }
+
+    if (sortProgressDismissed) {
+      sortProgressDismissed = false;
+      showToast(`Sort complete — ${total} images sorted.`, 'success');
+    } else {
+      // Transition the existing modal in-place to the bridge — no flicker.
+      showSortBridge(data.moved, keepsPath, { renamed: data.renamed });
+    }
+
     if (window.shelf && window.shelf.showNotification) {
-      const total = Object.values(data.moved).reduce((a, b) => a + b, 0);
       window.shelf.showNotification('Sort complete', `Sorted ${total} images`);
     }
   } catch (e) {
+    hideSortProgressModal();
     showToast('Sort failed: ' + e.message, 'error');
   }
+}
+
+// Consume the SSE stream from /api/sort?stream=1. Updates the progress
+// modal as `data: {processed,total}` ticks arrive (rAF-throttled so the
+// bar animates smoothly), returns the final result on `event: done`.
+// If the user dismissed the modal mid-sort, returns null and lets the
+// server finish in the background — partial cleanup of in-flight file
+// moves is risky, so we don't attempt cancellation in v1.3.4.
+async function consumeSortStream(res) {
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  let lastTick = null; // {processed, total}
+  let rafQueued = false;
+
+  const flushTick = () => {
+    rafQueued = false;
+    if (lastTick) updateSortProgressModal(lastTick.processed, lastTick.total);
+  };
+
+  while (true) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+
+    // SSE messages are separated by blank lines. Parse complete messages
+    // out of the buffer; leave any partial trailing message for the next
+    // chunk.
+    let sep;
+    while ((sep = buffer.indexOf('\n\n')) !== -1) {
+      const message = buffer.slice(0, sep);
+      buffer = buffer.slice(sep + 2);
+
+      let event = 'message';
+      let dataLine = '';
+      for (const line of message.split('\n')) {
+        if (line.startsWith('event: ')) event = line.slice(7).trim();
+        else if (line.startsWith('data: ')) dataLine = line.slice(6);
+      }
+      if (!dataLine) continue;
+      let payload;
+      try {
+        payload = JSON.parse(dataLine);
+      } catch {
+        continue;
+      }
+
+      if (event === 'done') {
+        return payload;
+      }
+      // Per-file progress tick — coalesce via rAF so the bar animates
+      // smoothly even on a 500-file sort.
+      lastTick = payload;
+      if (!rafQueued && sortProgressModalOpen()) {
+        rafQueued = true;
+        requestAnimationFrame(flushTick);
+      }
+    }
+  }
+  // Stream ended without `done` — treat as failure
+  return null;
 }
 
 async function handleConvert() {
@@ -1231,7 +1403,7 @@ function showMoveToShootModal(count, siblings) {
   });
 }
 
-function showSortBridge(moved, keepsPath) {
+function showSortBridge(moved, keepsPath, opts = {}) {
   const overlay = document.getElementById('modal-overlay');
   const total = Object.values(moved).reduce((a, b) => a + b, 0);
   const parts = [];
@@ -1245,6 +1417,7 @@ function showSortBridge(moved, keepsPath) {
       <div class="bridge-elf-host" style="display:flex;justify-content:center;margin-bottom:14px"></div>
       <h2>Sorted ${total} images</h2>
       <p>${parts.join(' · ')}</p>
+      <p class="bridge-note" id="bridge-renamed-note" hidden></p>
       <div class="modal-buttons">
         <button class="btn btn-muted" id="bridge-done">Done</button>
         <button class="btn btn-muted" id="bridge-new">Start New Shoot</button>
@@ -1252,6 +1425,18 @@ function showSortBridge(moved, keepsPath) {
       </div>
     </div>
   `;
+  // If filenames collided in the destination (multi-camera shoots typically
+  // produce IMG_1234.CR3 from BOTH bodies), uniqueDest auto-renamed them
+  // with a -2/-3 suffix. Surface the count via textContent (not HTML) so
+  // even if a future caller passes weird data the message is still safe.
+  const renamedCount = Array.isArray(opts.renamed) ? opts.renamed.length : 0;
+  if (renamedCount > 0) {
+    const note = overlay.querySelector('#bridge-renamed-note');
+    if (note) {
+      note.textContent = `${renamedCount} filename${renamedCount === 1 ? '' : 's'} renamed (duplicate names from another card)`;
+      note.hidden = false;
+    }
+  }
   overlay.classList.add('active');
   const sortElf = overlay.querySelector('.bridge-elf-host');
   if (sortElf) createElf(sortElf, 'sparkle', 6);

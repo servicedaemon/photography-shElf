@@ -124,12 +124,34 @@ sortingRoutes.post('/sort', async (req, res) => {
     return res.status(400).json({ error: 'Cannot read source directory' });
   }
 
+  // Optional Server-Sent Events stream: set ?stream=1 to receive
+  // {processed, total} ticks as each file moves, then a final `event: done`
+  // with the full result. Default (no query) preserves the synchronous
+  // single-JSON response for back-compat.
+  const useStream = req.query.stream === '1';
+  if (useStream) {
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    // Tell intermediate proxies (and our own dev vite proxy) not to
+    // buffer — without this, the client wouldn't see ticks until close.
+    res.setHeader('X-Accel-Buffering', 'no');
+    res.flushHeaders();
+  }
+
   const moved = { keep: 0, favorite: 0, reject: 0, unsorted: 0 };
   const errors = [];
+  const renamed = []; // collisions: filenames that got -N suffix
+  const total = files.length;
+  let processed = 0;
 
   for (const filename of files) {
     const src = path.join(sourcePath, filename);
-    if (!fs.existsSync(src)) continue;
+    if (!fs.existsSync(src)) {
+      processed++;
+      if (useStream) res.write(`data: ${JSON.stringify({ processed, total })}\n\n`);
+      continue;
+    }
 
     const status = state[filename] || 'unmarked';
     let destDir;
@@ -139,27 +161,43 @@ sortingRoutes.post('/sort', async (req, res) => {
     else destDir = unsortedDir;
 
     const dest = uniqueDest(destDir, filename);
+    const finalName = path.basename(dest);
     try {
       // Copy-then-delete for cross-volume safety
       fs.copyFileSync(src, dest);
       fs.unlinkSync(src);
       moved[status === 'unmarked' ? 'unsorted' : status]++;
+      if (finalName !== filename) renamed.push(filename);
     } catch (e) {
       errors.push({ filename, error: e.message });
+    }
+
+    processed++;
+    if (useStream) {
+      res.write(`data: ${JSON.stringify({ processed, total })}\n\n`);
     }
   }
 
   // Clear state for this source
   setState(source, {});
-  res.json({
+
+  const result = {
     moved,
     shootDir,
     unsortedDir,
     keepsDir,
     favoritesDir,
     rejectsDir,
+    renamed: renamed.length > 0 ? renamed : undefined,
     errors: errors.length > 0 ? errors : undefined,
-  });
+  };
+
+  if (useStream) {
+    res.write(`event: done\ndata: ${JSON.stringify(result)}\n\n`);
+    res.end();
+  } else {
+    res.json(result);
+  }
 });
 
 // Pure helper: true when `sourcePath` is the keeps subfolder of a real

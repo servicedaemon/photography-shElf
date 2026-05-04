@@ -488,6 +488,79 @@
   border-top: 1px solid var(--hairline);
 }
 
+/* ─── Sort progress modal ───────────────────────────────────────────── */
+
+/* Lean by design: just a count and a smoothly-animating amber bar. The
+   filename-scrolling pattern that Lightroom and Photo Mechanic use was
+   intentionally cut — sequential CR3 names like IMG_1234.CR3, IMG_1235.CR3
+   are visual noise the user can't act on. A calm count + smooth bar is
+   more dignified at the tens-of-seconds scale. */
+.sort-progress-modal {
+  text-align: center;
+  min-width: 320px;
+}
+
+.sort-progress-count {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  letter-spacing: 0.06em;
+  color: var(--ink-dim);
+  font-variant-numeric: tabular-nums;
+  margin-top: 8px;
+}
+
+.sort-progress-bar {
+  width: 100%;
+  height: 6px;
+  margin-top: 12px;
+  appearance: none;
+  -webkit-appearance: none;
+  border: none;
+  border-radius: 999px;
+  background: var(--bg-card);
+  overflow: hidden;
+}
+.sort-progress-bar::-webkit-progress-bar {
+  background: var(--bg-card);
+  border-radius: 999px;
+}
+.sort-progress-bar::-webkit-progress-value {
+  background: linear-gradient(90deg, var(--amber), #f0c060);
+  border-radius: 999px;
+  transition: width 220ms cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+.sort-progress-bar::-moz-progress-bar {
+  background: var(--amber);
+  border-radius: 999px;
+}
+
+.sort-progress-hint {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.06em;
+  color: var(--ink-faint);
+  margin-top: 18px;
+}
+
+.sort-progress-hint kbd {
+  font-family: var(--font-mono);
+  background: var(--bg-card);
+  border: 1px solid var(--hairline);
+  border-radius: 3px;
+  padding: 1px 6px;
+  font-size: 10px;
+  color: var(--ink-dim);
+}
+
+/* Bridge modal — soft note for renamed files (collision suffixes) */
+.bridge-note {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: var(--ink-faint);
+  margin-top: 10px;
+}
+
 /* ─── Folder picker buttons ─────────────────────────────────────────── */
 
 .folder-btn {
