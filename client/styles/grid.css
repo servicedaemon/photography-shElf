@@ -4,7 +4,20 @@
 #grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(var(--thumb-size), 1fr));
-  gap: 8px;
+  /* v1.5.0 jagged grid: each card sets `grid-row-end: span N` from its
+     image's aspect ratio, where N is the height in 1px row units.
+     Vertical photos render tall, horizontal wide, square square — no
+     cropping. Column count is uniform so up/down keyboard nav still
+     works (left/right by index, ±cols for up/down).
+
+     row-gap MUST be 0 — `gap: 8px` would otherwise add 8px between
+     every 1px-tall row, blowing card heights out by 200×. Vertical
+     separation between cards comes from each card's own border + the
+     amber-glow on selection. Horizontal column-gap stays at 8px so
+     adjacent cards in the same row still breathe. */
+  grid-auto-rows: 1px;
+  column-gap: 8px;
+  row-gap: 0;
   padding: 16px 20px 100px;
   min-height: calc(100vh - var(--header-height) - 48px);
 }
@@ -13,7 +26,8 @@
 
 .card {
   position: relative;
-  aspect-ratio: 3 / 2;
+  /* aspect-ratio dropped in v1.5.0 — height now comes from
+     grid-row-end: span N set per-card in renderGrid(). */
   overflow: hidden;
   cursor: pointer;
   border-radius: var(--radius);

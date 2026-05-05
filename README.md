@@ -83,10 +83,10 @@ It is not a RAW developer — Lightroom (or Capture One, or Photoshop) is. It's 
 
 | Platform                  | File                    | Notes                        |
 | ------------------------- | ----------------------- | ---------------------------- |
-| **macOS (Apple Silicon)** | `Shelf-1.4.3-arm64.dmg` | Native for M-series Macs     |
-| **Windows 10/11**         | `Shelf-Setup-1.4.3.exe` | NSIS installer, x64          |
-| **Linux — AppImage**      | `Shelf-1.4.3.AppImage`  | Universal, no install needed |
-| **Linux — Debian/Ubuntu** | `shelf_1.4.3_amd64.deb` | `sudo dpkg -i`               |
+| **macOS (Apple Silicon)** | `Shelf-1.5.0-arm64.dmg` | Native for M-series Macs     |
+| **Windows 10/11**         | `Shelf-Setup-1.5.0.exe` | NSIS installer, x64          |
+| **Linux — AppImage**      | `Shelf-1.5.0.AppImage`  | Universal, no install needed |
+| **Linux — Debian/Ubuntu** | `shelf_1.5.0_amd64.deb` | `sudo dpkg -i`               |
 
 Latest release: **[GitHub Releases →](https://github.com/servicedaemon/photography-shElf/releases/latest)**
 
@@ -115,7 +115,7 @@ Then double-click again. This clears macOS's download-quarantine flag that's blo
 
 ### Installing on Windows
 
-1. Download `Shelf-Setup-1.4.3.exe` from the releases page.
+1. Download `Shelf-Setup-1.5.0.exe` from the releases page.
 2. Double-click to run the installer. Follow the prompts.
 3. **First launch**: Windows SmartScreen will warn _"Windows protected your PC."_
    Click **More info** → **Run anyway**. _This is needed once because the app isn't code-signed. After the first approval, double-click works forever._
@@ -130,16 +130,16 @@ Then double-click again. This clears macOS's download-quarantine flag that's blo
 
 **AppImage (any distro):**
 
-1. Download `Shelf-1.4.3.AppImage` from the releases page.
-2. `chmod +x Shelf-1.4.3.AppImage && ./Shelf-1.4.3.AppImage`
+1. Download `Shelf-1.5.0.AppImage` from the releases page.
+2. `chmod +x Shelf-1.5.0.AppImage && ./Shelf-1.5.0.AppImage`
 3. Most desktop environments let you double-click AppImages directly after marking executable.
 
 > **If the AppImage fails with a FUSE error** on Ubuntu 24.04+, install the FUSE2 compatibility package: `sudo apt-get install libfuse2`. Or run it with `--no-sandbox` as a temporary workaround.
 
 **Debian/Ubuntu (.deb):**
 
-1. Download `shelf_1.4.3_amd64.deb` from the releases page.
-2. `sudo dpkg -i shelf_1.4.3_amd64.deb`
+1. Download `shelf_1.5.0_amd64.deb` from the releases page.
+2. `sudo dpkg -i shelf_1.5.0_amd64.deb`
 3. Launch from your application menu or run `shelf` in a terminal.
 
 Optional for DNG conversion: install `dnglab` from the [dnglab releases](https://github.com/dnglab/dnglab/releases) and put it on your PATH, or `cargo install dnglab` if you have Rust installed.

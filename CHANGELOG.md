@@ -3,6 +3,35 @@
 All notable changes to Shelf will be documented here.
 Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [1.5.0] — 2026-05-04
+
+Jagged grid + eager loading. The grid finally shows photos at their natural shape — vertical tall, horizontal wide, square square. No more 3:2 cropping.
+
+### Added
+
+- **Jagged grid layout.** Each card sized to its image's natural aspect ratio via `grid-row-end: span N`. Vertical photos render tall, panoramic photos render short and wide, square photos render square. Column count remains uniform so up/down keyboard nav works the same way.
+- **Server returns image dimensions on `/api/images`** and `/api/folder/:folder/images`. Read once via `sharp(thumbPath).metadata()` (cached on disk after first read). Falls back to `{width: 3, height: 2}` on any failure so legacy paths keep working.
+- **`ResizeObserver` on the grid container** re-runs the span math when the window resizes or the thumb-size slider changes. Without this, cropping appeared as the column count shifted and old spans went stale.
+
+### Changed
+
+- **`IntersectionObserver` lazy loading removed.** All thumbnails load on shoot open. The server's 8-concurrent semaphore in `lib/thumbnails.js` provides the right backpressure; per-thumbnail JPEG bytes are small (~50KB) so total memory is reasonable. This also fixes the "wave of loads on first stack expand" issue — `display: none` cards still receive their `src` and load in the background.
+- **Card aspect-ratio CSS dropped.** Replaced with per-card span math + `grid-auto-rows: 1px` + `row-gap: 0` (row-gap MUST be 0 — `gap: 8px` would otherwise add 8px between every 1px-tall row, blowing card heights out by 200×). Column-gap stays at 8px so adjacent cards still breathe.
+- **Loading message** updated to set expectations on cold-cache CR3 shoots: "First load of a raw shoot reads each file's dimensions for the layout. This takes a moment — subsequent loads of the same shoot are instant."
+
+### Under the hood
+
+- The `colWidth` calculation subtracts `paddingLeft + paddingRight` from `clientWidth` before dividing into cols. Without this fix spans ran ~17% too tall (single-column case: clientWidth=328, padding=40 → real colWidth=288 not 328).
+- Verified: 6 distinct aspect ratios produce 6 distinct row spans matching their image ratios (3:2 / 2:3 / 1:1 / 3:1 / 4:3 / 1:2). After thumb-size slider change, spans recompute via `ResizeObserver` and ratios stay matched.
+- 76 server tests pass. Lint clean.
+- Sonnet code-review caught the resize-staleness issue ahead of ship — fixed before tag.
+
+### Known follow-ups
+
+- Cold-cache latency on a fresh 500-photo CR3 shoot can be 30+ seconds (8 concurrent × ~600ms per RAW preview extract). Loading message communicates this. Real progress UI deferred to v1.5.1+ if needed.
+- `getGridColumns()` whitespace robustness — works fine in current Chromium but a more defensive `.trim().split(/\s+/).filter(Boolean)` would be safer. Filed as follow-up.
+- The dimension prefetch block is duplicated between `/api/images` and `/folder/:folder/images`. Worth extracting to a shared helper next time the route logic changes.
+
 ## [1.4.3] — 2026-05-04
 
 Naming-scheme preset + smart sort modal. Set the way you like to name shoots once; Shelf pre-fills the new-shoot input and recognizes existing matching shoots automatically.

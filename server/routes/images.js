@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import path from 'path';
 import fs from 'fs';
+import sharp from 'sharp';
 import { getThumbnail, getPreview } from '../lib/thumbnails.js';
 import { getConfig, getState } from '../lib/state.js';
 import { detectStage } from '../lib/stages.js';
@@ -33,7 +34,31 @@ imageRoutes.get('/images', async (req, res) => {
       .filter((f) => VALID_FILENAME.test(f))
       .sort();
     const state = getState(source);
-    const images = files.map((f) => ({ filename: f, status: state[f] || 'unmarked' }));
+
+    // Read each file's natural dimensions via the cached thumbnail (sharp
+    // metadata read on a cached JPEG is near-free; cold cache pays one
+    // resize per file but that work was about to happen anyway when the
+    // grid loaded thumbnails). Dimensions feed the v1.5+ jagged-grid
+    // layout — each card spans rows in proportion to its aspect ratio.
+    // Falls back to 3:2 on any failure so legacy images still render.
+    const dimensions = await Promise.all(
+      files.map(async (f) => {
+        try {
+          const thumbPath = await getThumbnail(path.join(source, f));
+          const meta = await sharp(thumbPath).metadata();
+          return { width: meta.width || 3, height: meta.height || 2 };
+        } catch {
+          return { width: 3, height: 2 };
+        }
+      }),
+    );
+
+    const images = files.map((f, i) => ({
+      filename: f,
+      status: state[f] || 'unmarked',
+      width: dimensions[i].width,
+      height: dimensions[i].height,
+    }));
 
     // Compute stacks (time-clustered groups) from EXIF timestamps. Graceful
     // if EXIF read fails — the grid just shows no stack badges rather than erroring.
@@ -118,7 +143,27 @@ imageRoutes.get('/folder/:folder/images', async (req, res) => {
       }
     }
 
-    const images = files.map((f) => ({ filename: f, status: favState[f] || 'unmarked' }));
+    // Same dimension prefetch as /api/images so the legacy flat-folder
+    // route also feeds the jagged-grid layout. Cached on disk after first
+    // request — subsequent reads are essentially free.
+    const dimensions = await Promise.all(
+      files.map(async (f) => {
+        try {
+          const thumbPath = await getThumbnail(path.join(folderPath, f));
+          const meta = await sharp(thumbPath).metadata();
+          return { width: meta.width || 3, height: meta.height || 2 };
+        } catch {
+          return { width: 3, height: 2 };
+        }
+      }),
+    );
+
+    const images = files.map((f, i) => ({
+      filename: f,
+      status: favState[f] || 'unmarked',
+      width: dimensions[i].width,
+      height: dimensions[i].height,
+    }));
 
     let stacks = [];
     try {

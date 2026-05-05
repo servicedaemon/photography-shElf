@@ -9,7 +9,10 @@ let mode = 'card';
 let activeFilters = new Set(['all']);
 let selectedIndex = -1;
 let gridEl = null;
-let observer = null;
+// observer dropped in v1.5.0 — we now eager-load all thumbnails on
+// shoot open (see renderGrid). The IntersectionObserver was preventing
+// hidden stack members from preloading; removing it fixes the
+// "wave of loads on first uncollapse" UX issue.
 let currentSelectionRange = null; // tracked via SELECTION_CHANGED event
 
 // Stack grouping: array of arrays of filenames (each inner array = one stack of ≥2 frames).
@@ -25,6 +28,23 @@ let coverByStackId = new Map(); // stackId → filename
 
 export function initGrid() {
   gridEl = document.getElementById('grid');
+
+  // v1.5.0: re-render on grid resize so jagged-grid spans stay accurate
+  // when the user drags the window edge or changes the thumb-size slider
+  // (which alters --thumb-size → grid-template-columns → column count).
+  // ResizeObserver batches to one fire per layout frame, much cheaper
+  // than a `resize` listener firing on every drag pixel.
+  if (typeof ResizeObserver !== 'undefined') {
+    let resizeQueued = false;
+    new ResizeObserver(() => {
+      if (resizeQueued || !images || images.length === 0) return;
+      resizeQueued = true;
+      requestAnimationFrame(() => {
+        resizeQueued = false;
+        renderGrid();
+      });
+    }).observe(gridEl);
+  }
 
   bus.on(EVENTS.SELECTION_CHANGED, (detail) => {
     // `range` is only present when shift-click range selection changes;
@@ -354,42 +374,38 @@ export function getGridColumns() {
 
 function renderGrid() {
   if (!gridEl) return;
-  gridEl.innerHTML = '';
+  gridEl.replaceChildren();
 
-  // Disconnect old observer
-  if (observer) observer.disconnect();
-
-  // Create IntersectionObserver for lazy loading
-  observer = new IntersectionObserver(
-    (entries) => {
-      for (const entry of entries) {
-        if (entry.isIntersecting) {
-          const card = entry.target;
-          const img = card.querySelector('img');
-          if (img && img.dataset.src) {
-            img.src = img.dataset.src;
-            img.removeAttribute('data-src');
-            // Remove skeleton
-            const skeleton = card.querySelector('.skeleton');
-            if (skeleton) {
-              img.onload = () => skeleton.remove();
-            }
-          }
-          observer.unobserve(card);
-        }
-      }
-    },
-    // Wide root margin so thumbnails for cards just outside the viewport
-    // start loading early. Specifically prevents the "wave of loads"
-    // visible on first stack expand: the hidden cards weren't being
-    // observed (display: none → never intersected), so expanding them
-    // queued a fresh batch of fetches. With this margin, scrolling near
-    // a stack pre-loads its members preemptively. Stack expand also
-    // re-observes the newly-visible cards in toggleStackAtCurrent.
-    { rootMargin: '1500px' },
-  );
+  // v1.5.0: eager-load all thumbnails on shoot open. The IntersectionObserver
+  // was a holdover from when shoots could be 1000s of images and lazy
+  // loading mattered for memory; in practice ~50KB/thumb × 500 = 25MB
+  // and the server's 8-concurrent semaphore in lib/thumbnails.js provides
+  // the right backpressure. Removing the observer also fixes the
+  // "wave of loads on first stack expand" — hidden cards (display:none)
+  // never fired the observer, so expanding queued a fresh batch. With
+  // src set directly, the browser pre-loads regardless of visibility.
 
   const fragment = document.createDocumentFragment();
+
+  // Compute the column track width so each card can set its grid-row
+  // span proportional to its aspect ratio. clientWidth INCLUDES padding,
+  // so we subtract paddingLeft/Right before dividing into cols. Otherwise
+  // spans run ~17% too tall and the image (object-fit: cover) crops to
+  // fill the inflated card.
+  const gridStyle = getComputedStyle(gridEl);
+  const cssColGap = parseFloat(gridStyle.columnGap) || 8;
+  const padLeft = parseFloat(gridStyle.paddingLeft) || 0;
+  const padRight = parseFloat(gridStyle.paddingRight) || 0;
+  const cols = Math.max(1, getGridColumns());
+  const usableWidth = (gridEl.clientWidth || 1200) - padLeft - padRight;
+  const colWidth = (usableWidth - cssColGap * (cols - 1)) / cols;
+  // grid-auto-rows: 1px → row span N means N pixels of card height.
+  // Card height = colWidth × (h/w) for the image's natural ratio.
+  const rowSpanFor = (img) => {
+    const w = img.width || 3;
+    const h = img.height || 2;
+    return Math.max(1, Math.round((colWidth * h) / w));
+  };
 
   images.forEach((img, i) => {
     const card = document.createElement('div');
@@ -398,6 +414,12 @@ function renderGrid() {
     // Stagger entry animation — cap at index 60 so a huge shoot doesn't
     // take forever to finish appearing.
     card.style.setProperty('--enter-i', Math.min(i, 60));
+
+    // Jagged-grid row span: card height in 1px row units, derived from
+    // the image's natural aspect ratio supplied by /api/images. With
+    // grid-auto-rows: 1px in CSS, span N === N pixels tall.
+    const span = rowSpanFor(img);
+    card.style.gridRowEnd = `span ${span}`;
 
     const status = img.status || 'unmarked';
     if (status !== 'unmarked') card.classList.add(status);
@@ -411,18 +433,21 @@ function renderGrid() {
       card.classList.add('selection');
     }
 
-    // Skeleton placeholder
+    // Skeleton placeholder fills the card via `inset: 0` (card height is
+    // already correct from the grid-row span). Removes itself when the
+    // thumbnail's onload fires below.
     const skeleton = document.createElement('div');
     skeleton.className = 'skeleton';
     card.appendChild(skeleton);
 
-    // Image (lazy loaded).
-    // alt="" (decorative) because the label below already shows the filename;
-    // a populated alt would double-render on broken-thumbnail fallback.
+    // Image — eager-loaded (no data-src indirection). The browser
+    // handles parallelism; the server's 8-concurrent semaphore caps CPU.
+    // alt="" (decorative) because the label below already shows the filename.
     const imgEl = document.createElement('img');
-    imgEl.dataset.src = thumbUrl(img.filename);
+    imgEl.src = thumbUrl(img.filename);
     imgEl.draggable = false;
     imgEl.alt = '';
+    imgEl.onload = () => skeleton.remove();
     card.appendChild(imgEl);
 
     // Label
@@ -511,7 +536,6 @@ function renderGrid() {
     applyFilterToCard(card, i);
 
     fragment.appendChild(card);
-    observer.observe(card);
   });
 
   gridEl.appendChild(fragment);

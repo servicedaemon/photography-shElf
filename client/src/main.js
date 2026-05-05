@@ -729,10 +729,18 @@ async function loadSource(dir) {
   renderHeader();
   hideEmptyState();
 
-  // Show loading elf
+  // Show loading elf. The subtext is a hedge against the v1.5.0 cold-
+  // cache case: the first load of a fresh raw-format shoot has to extract
+  // a JPEG preview from each CR3 + read sharp metadata for jagged-grid
+  // sizing. For 500 CR3s that can be 30+ seconds. Subsequent loads of
+  // the same shoot are near-instant (thumbnail cache on disk).
   const grid = document.getElementById('grid');
   grid.innerHTML =
-    '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:80px;gap:16px;grid-column:1/-1"><div id="loading-elf"></div><p style="color:var(--tan)">Loading images...</p></div>';
+    '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:80px;gap:16px;grid-column:1/-1">' +
+    '<div id="loading-elf"></div>' +
+    '<p style="color:var(--tan);margin:0">Loading photos…</p>' +
+    '<p style="color:var(--ink-faint);font-family:var(--font-mono);font-size:11px;margin:0;max-width:380px;text-align:center;line-height:1.5">First load of a raw shoot reads each file\'s dimensions for the layout. This takes a moment — subsequent loads of the same shoot are instant.</p>' +
+    '</div>';
   createElf(document.getElementById('loading-elf'), 'scribbling', 6);
 
   try {
