@@ -117,9 +117,12 @@ function updateActions() {
     );
     buttons.push(`<button class="btn btn-muted" id="action-clear-selection">Clear</button>`);
   } else {
-    // Sort to Folders \u2014 any marks to route. Works equally well from a
-    // card, an unsorted folder, or a keeps folder mid-cull.
-    if (total > 0) {
+    // Sort to Folders \u2014 show whenever there's anything to sort. Pre-1.5.1
+    // this was gated on `total > 0` (marks exist), but the camera-card-
+    // import flow needs to allow "dump everything into UNSORTED" without
+    // marking first. Sort modal already routes unmarked photos to
+    // UNSORTED, so showing the button with zero marks is the right move.
+    if (images.length > 0) {
       buttons.push(`<button class="btn btn-primary" id="action-sort">Sort to Folders</button>`);
     }
     // (Promote to Favorites button retired in v1.4.1 \u2014 Sort already

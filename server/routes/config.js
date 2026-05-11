@@ -5,6 +5,7 @@ import { getConfig, setConfig } from '../lib/state.js';
 import { detectCameraDrives } from '../lib/drives.js';
 import { pickFolder, openFolderInLightroom } from '../lib/platform.js';
 import { normalizeSubfolderRole } from '../lib/stages.js';
+import { IMAGE_RE, countImages, findImageFolders } from '../lib/image-discovery.js';
 
 export const configRoutes = Router();
 
@@ -90,16 +91,7 @@ configRoutes.get('/list-dir', (req, res) => {
     return res.status(404).json({ error: 'Directory not found' });
   }
 
-  const IMAGE_RE = /\.(cr3|cr2|arw|nef|raf|dng|jpg|jpeg|tif|tiff)$/i;
   const SORT_FOLDER_RE = /^(Keeps|Favorites|Rejects|Unsorted)\s*-\s*(\d{2}-\d{4})\s*-\s*(.+)$/i;
-
-  function countImages(dirPath) {
-    try {
-      return fs.readdirSync(dirPath).filter((f) => IMAGE_RE.test(f)).length;
-    } catch {
-      return 0;
-    }
-  }
 
   let rootImageCount = 0;
   const entries = fs.readdirSync(resolved, { withFileTypes: true });
@@ -162,10 +154,25 @@ configRoutes.get('/list-dir', (req, res) => {
       const rootCount = countImages(subPath);
       shoots.push({ name: entry.name, path: subPath, folders, rootCount });
     } else {
-      // Plain folder — check if it has images
+      // Plain folder — check if it has images directly.
       const count = countImages(subPath);
       if (count > 0) {
         otherFolders.push({ name: entry.name, path: subPath, imageCount: count });
+      } else {
+        // No images directly — but the folder might still hold a camera-card
+        // layout (DCIM/100EOS5D/IMG_*.CR3) or a user's nested archive
+        // (2024/Vietnam/IMG_*.JPG). Walk a couple levels deeper and surface
+        // anything image-bearing as its own pickable folder. Pre-v1.5.1
+        // these were invisible and pointing the picker at a card root
+        // returned "No images or shoots found."
+        const nested = findImageFolders(subPath, entry.name, 2);
+        for (const folder of nested) {
+          otherFolders.push({
+            name: folder.relName,
+            path: folder.path,
+            imageCount: folder.imageCount,
+          });
+        }
       }
     }
   }

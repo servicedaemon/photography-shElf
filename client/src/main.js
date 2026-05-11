@@ -187,10 +187,7 @@ function showNamingSchemeModal() {
           });
           if (!r.ok) throw new Error(`HTTP ${r.status}`);
           close();
-          showToast(
-            val ? `Naming scheme: ${val}` : 'Naming scheme cleared',
-            'success',
-          );
+          showToast(val ? `Naming scheme: ${val}` : 'Naming scheme cleared', 'success');
         } catch (e) {
           showToast('Failed to save: ' + e.message, 'error');
         }
@@ -981,11 +978,18 @@ function showSortModal({
     check.type = 'checkbox';
     check.id = 'sort-new-shoot';
     check.checked = !insideShoot; // default ON for loose folders / card imports
-    if (!insideShoot) check.disabled = true;
+    // Only disable when there's NO alternative — i.e., outside a shoot AND
+    // the library has no merge candidate. Otherwise the user needs to be
+    // able to toggle between "new shoot" and "merge into existing." Prior
+    // to v1.5.1 this was just `!insideShoot`, which combined with v1.4.3's
+    // auto-merge (which unchecks this box) produced a "disabled + unchecked"
+    // state that looked broken — the user couldn't choose new-shoot anymore.
+    const onlyChoiceIsNew = !insideShoot && !canMerge;
+    if (onlyChoiceIsNew) check.disabled = true;
     const checkLabel = document.createElement('span');
     checkLabel.textContent = 'Create as a new shoot instead';
     checkRow.append(check, checkLabel);
-    if (!insideShoot) checkRow.classList.add('is-disabled');
+    if (onlyChoiceIsNew) checkRow.classList.add('is-disabled');
     modal.appendChild(checkRow);
 
     // Name input — appears below the checkbox, only when checked
@@ -1027,7 +1031,8 @@ function showSortModal({
       mergeWrap.style.display = 'none';
       const mergeHint = document.createElement('p');
       mergeHint.className = 'sort-merge-hint';
-      mergeHint.textContent = 'Pick the shoot to merge into. Filename collisions are auto-renamed (-2, -3, …).';
+      mergeHint.textContent =
+        'Pick the shoot to merge into. Filename collisions are auto-renamed (-2, -3, …).';
       mergeWrap.appendChild(mergeHint);
       const list = document.createElement('div');
       list.className = 'sort-shoot-list';
@@ -1194,10 +1199,7 @@ function showSortModal({
           return;
         }
         if (markedTotal === 0) {
-          showToast(
-            'Nothing marked. Press K / F / X first, then merge.',
-            'error',
-          );
+          showToast('Nothing marked. Press K / F / X first, then merge.', 'error');
           return;
         }
         close({
@@ -1564,9 +1566,9 @@ async function handleOpenEditor() {
   // (the server detects this via currentSub === 'favorites').
   let favoritesPath = source;
   try {
-    const ctx = await fetch(
-      `/api/shoot-context?source=${encodeURIComponent(source)}`,
-    ).then((r) => (r.ok ? r.json() : null));
+    const ctx = await fetch(`/api/shoot-context?source=${encodeURIComponent(source)}`).then((r) =>
+      r.ok ? r.json() : null,
+    );
     if (ctx?.insideShoot) {
       if (ctx.currentSub === 'favorites') {
         favoritesPath = source;

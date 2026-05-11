@@ -2,37 +2,59 @@ import fs from 'fs';
 import path from 'path';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
+import { findImageFolders } from './image-discovery.js';
 
 const execFileAsync = promisify(execFile);
+
+// Fallback for camera cards that don't follow the strict /DCIM/<subdir>/
+// layout — some action cams, drones, or third-party SD card writers use
+// other folder names. Returns just the paths of image-bearing directories.
+// Pre-v1.5.1 these cards were invisible to Scan-for-Camera.
+function findImageDirs(rootPath, maxDepth) {
+  return findImageFolders(rootPath, '', maxDepth).map((r) => r.path);
+}
 
 export async function detectCameraDrives() {
   const drives = [];
 
   if (process.platform === 'darwin') {
-    // macOS: scan /Volumes/ for dirs containing DCIM/
+    // macOS: scan /Volumes/ for dirs containing DCIM/. If a volume has no
+    // DCIM at its root, fall back to a shallow scan for any image-bearing
+    // subdirectory — covers cards from cameras that don't follow the DCF
+    // standard layout (e.g., some drones, action cams, or hand-organized cards).
     const volumesDir = '/Volumes';
     if (fs.existsSync(volumesDir)) {
       const volumes = fs.readdirSync(volumesDir);
       for (const vol of volumes) {
         const volPath = path.join(volumesDir, vol);
         const dcimPath = path.join(volPath, 'DCIM');
+        let subDirs = [];
+        let dcim = null;
         if (fs.existsSync(dcimPath) && fs.statSync(dcimPath).isDirectory()) {
-          // Find subdirectories with images (e.g., 100CANON, 101CANON)
-          const subDirs = fs
+          // Standard DCF layout — find subdirectories with images
+          // (e.g., 100CANON, 101CANON).
+          subDirs = fs
             .readdirSync(dcimPath)
             .filter((d) => {
               const fullPath = path.join(dcimPath, d);
               return fs.statSync(fullPath).isDirectory();
             })
             .map((d) => path.join(dcimPath, d));
-
-          drives.push({
-            name: vol,
-            mountPoint: volPath,
-            dcimPath,
-            imageDirs: subDirs,
-          });
+          dcim = dcimPath;
+        } else {
+          // No DCIM at root — try a shallow image-folder scan. Skip the
+          // system volume (`/`) since that would scan the whole disk.
+          if (volPath === '/' || vol === 'Macintosh HD') continue;
+          subDirs = findImageDirs(volPath, 3);
+          if (subDirs.length === 0) continue;
         }
+
+        drives.push({
+          name: vol,
+          mountPoint: volPath,
+          dcimPath: dcim,
+          imageDirs: subDirs,
+        });
       }
     }
   } else if (process.platform === 'win32') {
@@ -50,19 +72,25 @@ export async function detectCameraDrives() {
         if (!vol.DriveLetter) continue;
         const drivePath = `${vol.DriveLetter}:\\`;
         const dcimPath = path.join(drivePath, 'DCIM');
+        let subDirs = [];
+        let dcim = null;
         if (fs.existsSync(dcimPath) && fs.statSync(dcimPath).isDirectory()) {
-          const subDirs = fs
+          subDirs = fs
             .readdirSync(dcimPath)
             .filter((d) => fs.statSync(path.join(dcimPath, d)).isDirectory())
             .map((d) => path.join(dcimPath, d));
-
-          drives.push({
-            name: vol.FileSystemLabel || vol.DriveLetter,
-            mountPoint: drivePath,
-            dcimPath,
-            imageDirs: subDirs,
-          });
+          dcim = dcimPath;
+        } else {
+          subDirs = findImageDirs(drivePath, 3);
+          if (subDirs.length === 0) continue;
         }
+
+        drives.push({
+          name: vol.FileSystemLabel || vol.DriveLetter,
+          mountPoint: drivePath,
+          dcimPath: dcim,
+          imageDirs: subDirs,
+        });
       }
     } catch {
       // PowerShell not available or failed
@@ -79,19 +107,25 @@ export async function detectCameraDrives() {
       for (const entry of entries) {
         const entryPath = path.join(searchDir, entry);
         const dcimPath = path.join(entryPath, 'DCIM');
+        let subDirs = [];
+        let dcim = null;
         if (fs.existsSync(dcimPath) && fs.statSync(dcimPath).isDirectory()) {
-          const subDirs = fs
+          subDirs = fs
             .readdirSync(dcimPath)
             .filter((d) => fs.statSync(path.join(dcimPath, d)).isDirectory())
             .map((d) => path.join(dcimPath, d));
-
-          drives.push({
-            name: entry,
-            mountPoint: entryPath,
-            dcimPath,
-            imageDirs: subDirs,
-          });
+          dcim = dcimPath;
+        } else {
+          subDirs = findImageDirs(entryPath, 3);
+          if (subDirs.length === 0) continue;
         }
+
+        drives.push({
+          name: entry,
+          mountPoint: entryPath,
+          dcimPath: dcim,
+          imageDirs: subDirs,
+        });
       }
     }
   }

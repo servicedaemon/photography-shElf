@@ -3,6 +3,30 @@
 All notable changes to Shelf will be documented here.
 Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [1.5.1] — 2026-05-11
+
+Four real-session fixes after Ava's first cull on v1.5.0 with a fresh card. All four traced back to layouts and workflows we hadn't covered.
+
+### Fixed
+
+- **Scan-for-Camera missed her second camera's card.** `detectCameraDrives` required a literal `DCIM/` folder at the volume root. When that didn't exist (some drones, action cams, hand-organized cards), the volume was invisible. Now falls back to a shallow image-folder scan up to 3 levels deep, surfacing any image-bearing directory. Same fallback added to Windows and Linux paths for parity. The system volume is skipped to avoid scanning the whole disk.
+- **"Choose Folder" on a camera card returned "No images or shoots found."** When `/api/list-dir` encountered a top-level subdirectory with no images directly and no canonical shoot subfolders, it stopped. Now it walks up to 2 levels deeper and surfaces any image-bearing descendants as pickable folders with `DCIM/100EOS5D`-style relative names. Pointing the picker at `/Volumes/Card/` now lands you on the camera roll directly via the single-folder smart auto-load.
+- **Sort button hidden until photos were marked.** Pre-1.5.1 the action bar gated Sort behind `total > 0` marks. Camera-card-import flow wants to dump everything into UNSORTED without marking first. Gate changed to `images.length > 0` so the button appears as soon as any photos are loaded. Sort modal already routes unmarked photos to UNSORTED, so this is safe.
+- **Sort modal "Create as a new shoot" was disabled + unchecked.** v1.4.3's auto-merge logic unchecked the new-shoot checkbox when an existing shoot match was found; v1.3.5's `if (!insideShoot) check.disabled = true` kept it disabled. Result: a user outside a shoot saw a disabled checkbox sitting unchecked, with only "merge into existing" available. Fixed: disable only when there's truly no alternative (`!insideShoot && !canMerge`). When merge is also possible, the box stays enabled and toggleable.
+
+### Under the hood
+
+- New `server/lib/image-discovery.js` consolidates `IMAGE_RE`, `countImages`, `hasImages`, and `findImageFolders` (the recursive image-folder walker). Both `lib/drives.js` and `routes/config.js` use it now; the duplicated walkers from the in-progress edits were unified before ship.
+- 13 new tests in `server/test/image-discovery.test.js` cover the DCIM layout, multi-camera-roll cards, depth limits, Apple metadata trees (`.Spotlight-V100`, `.fseventsd`, `.Trashes`) being skipped, image-bearing folders being treated as a pickable unit (not recursed into), hidden directories, empty inputs, and clean relative-name formatting.
+- Walker's depth semantics clarified: `rootPath` is depth 0, children are depth 1, etc. `maxDepth=N` means image folders can sit up to N levels below root.
+- Sonnet two-stage pair review (spec compliance + quality) before ship — flagged the maxDepth off-by-one as brittle, fixed before commit.
+- 96 server tests pass, lint clean.
+
+### Known follow-ups
+
+- `/api/list-dir` integration test deferred — the route handler's wiring (the path that actually broke pre-1.5.1) has no end-to-end test. Logic is tested via `findImageFolders` in isolation. Task spawned to refactor the route body into a pure `listDirectory()` helper and cover it.
+- In `lib/drives.js` macOS branch, the standard DCIM path takes all subdirs unconditionally; empty subfolders from card reformats can show as zero-image entries in the drive picker. Pre-existing, but inconsistent with the post-1.5.1 fallback that filters by image count. Folded into the same follow-up task.
+
 ## [1.5.0] — 2026-05-04
 
 Jagged grid + eager loading. The grid finally shows photos at their natural shape — vertical tall, horizontal wide, square square. No more 3:2 cropping.
@@ -95,7 +119,7 @@ Action-bar simplification. The buttons that show up while you're culling are now
   - `.favorites-state.json` files no longer written (existing ones are harmless and ignored)
   - `handlePromoteFavorites`, `showPromoteBridge`, `showConfirmModal` (only caller) deleted from client
   - `bus.on('action:promote-favorites', ...)` wiring removed
-  
+
   When you mark favorites mid-cull and want to move them to the Favorites folder, just hit Sort — same end state, fewer concepts to learn.
 
 ### Under the hood
